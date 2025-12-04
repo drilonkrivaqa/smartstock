@@ -80,6 +80,14 @@ class ProductService {
     return movements;
   }
 
+  Product? findById(int id) {
+    try {
+      return productsBox.values.firstWhere((product) => product.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Product? findByBarcode(String code) {
     try {
       return productsBox.values
