@@ -10,6 +10,7 @@ import '../models/product.dart';
 import '../services/hive_service.dart';
 import '../services/product_service.dart';
 import '../services/settings_service.dart';
+import 'checkout_page.dart';
 import '../widgets/product_card.dart';
 import 'product_detail_page.dart';
 import 'product_form_page.dart';
@@ -43,6 +44,19 @@ class _HomePageState extends State<HomePage> {
           appBar: AppBar(
             title: const Text('SmartStock'),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.point_of_sale),
+                tooltip: 'Checkout',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => CheckoutPage(
+                        productService: widget.productService,
+                      ),
+                    ),
+                  );
+                },
+              ),
               IconButton(
                 icon: const Icon(Icons.qr_code_scanner),
                 tooltip: 'Scan to find product',
