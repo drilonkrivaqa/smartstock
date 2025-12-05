@@ -18,6 +18,7 @@ class ProductService {
   List<Product> getProducts({
     String searchQuery = '',
     ProductFilter filter = ProductFilter.all,
+    String? category,
   }) {
     final lowerQuery = searchQuery.toLowerCase().trim();
     final products = productsBox.values.where((product) {
@@ -25,16 +26,38 @@ class ProductService {
           product.name.toLowerCase().contains(lowerQuery) ||
           (product.sku ?? '').toLowerCase().contains(lowerQuery) ||
           (product.barcode ?? '').toLowerCase().contains(lowerQuery);
+      final matchesCategory = category == null
+          ? true
+          : category == '__uncategorized__'
+              ? (product.category == null || product.category!.isEmpty)
+              : product.category?.toLowerCase() == category.toLowerCase();
       final matchesFilter = switch (filter) {
         ProductFilter.all => true,
         ProductFilter.lowStock => product.quantity > 0 &&
             product.quantity <= product.minQuantity,
         ProductFilter.outOfStock => product.quantity == 0,
       };
-      return matchesQuery && matchesFilter;
+      return matchesQuery && matchesFilter && matchesCategory;
     }).toList()
       ..sort((a, b) => a.name.compareTo(b.name));
     return products;
+  }
+
+  List<String> categories() {
+    final categories = productsBox.values
+        .map((product) => product.category?.trim())
+        .where((value) => value != null && value!.isNotEmpty)
+        .cast<String>()
+        .toSet()
+        .toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return categories;
+  }
+
+  bool hasUncategorized() {
+    return productsBox.values.any(
+      (product) => product.category == null || product.category!.isEmpty,
+    );
   }
 
   Future<void> addOrUpdateProduct(Product product) async {

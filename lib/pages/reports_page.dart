@@ -54,6 +54,9 @@ class ReportsPage extends StatelessWidget {
                   final today = DateTime.now();
                   final startOfDay = DateTime(today.year, today.month, today.day);
                   final startOfWeek = startOfDay.subtract(Duration(days: today.weekday - 1));
+                  final startOfMonth = DateTime(today.year, today.month, 1);
+                  final last30Days = startOfDay.subtract(const Duration(days: 30));
+                  final last60Days = startOfDay.subtract(const Duration(days: 60));
                   final salesToday = saleService.salesTotalFor(
                     startOfDay.subtract(const Duration(seconds: 1)),
                     startOfDay.add(const Duration(days: 1)),
@@ -62,6 +65,38 @@ class ReportsPage extends StatelessWidget {
                     startOfWeek.subtract(const Duration(seconds: 1)),
                     startOfDay.add(const Duration(days: 1)),
                   );
+                  final salesMonth = saleService.salesTotalFor(
+                    startOfMonth.subtract(const Duration(seconds: 1)),
+                    startOfDay.add(const Duration(days: 1)),
+                  );
+                  final profit30Days = saleService.grossProfitFor(
+                    last30Days,
+                    startOfDay.add(const Duration(days: 1)),
+                  );
+                  final revenue30Days = saleService.salesTotalFor(
+                    last30Days.subtract(const Duration(seconds: 1)),
+                    startOfDay.add(const Duration(days: 1)),
+                  );
+                  final margin30Days = revenue30Days == 0
+                      ? 0
+                      : (profit30Days / revenue30Days) * 100;
+                  final soldLast30Days = saleService.quantitySoldSince(last30Days);
+                  final soldLast60Days = saleService.quantitySoldSince(last60Days);
+                  final topSellers = soldLast30Days.entries.toList()
+                    ..sort((a, b) => b.value.compareTo(a.value));
+                  final slowMovers = products
+                      .where((p) => !soldLast60Days.keys.contains(p.id))
+                      .toList()
+                    ..sort((a, b) => a.name.compareTo(b.name));
+                  final uniqueCustomers = saleService.uniqueCustomersCount();
+                  final repeatCustomers = saleService
+                      .getSales()
+                      .where((sale) => sale.customerName != null && sale.customerName!.isNotEmpty)
+                      .fold<Map<String, int>>({}, (map, sale) {
+                    final name = sale.customerName!.trim();
+                    map.update(name, (value) => value + 1, ifAbsent: () => 1);
+                    return map;
+                  });
                   return ListView(
                     children: [
                       _ReportCard(
@@ -120,6 +155,68 @@ class ReportsPage extends StatelessWidget {
                           children: [
                             Text('Today: ${salesToday.toStringAsFixed(2)}'),
                             Text('This week: ${salesWeek.toStringAsFixed(2)}'),
+                            Text('This month: ${salesMonth.toStringAsFixed(2)}'),
+                          ],
+                        ),
+                      ),
+                      _ReportCard(
+                        title: 'Top sellers (last 30 days)',
+                        icon: Icons.rocket_launch,
+                        child: topSellers.isEmpty
+                            ? const Text('No sales recorded in the last 30 days.')
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: topSellers.take(5).map((entry) {
+                                  final product =
+                                      productService.findById(entry.key)?.name ?? 'Unknown';
+                                  return Padding(
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 2),
+                                    child: Text('$product • ${entry.value} sold'),
+                                  );
+                                }).toList(),
+                              ),
+                      ),
+                      _ReportCard(
+                        title: 'Slow movers (no sales in 60 days)',
+                        icon: Icons.hourglass_bottom,
+                        child: slowMovers.isEmpty
+                            ? const Text('All products have recent activity.')
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: slowMovers
+                                    .map(
+                                      (p) => Padding(
+                                        padding:
+                                            const EdgeInsets.symmetric(vertical: 2),
+                                        child: Text('${p.name} (qty: ${p.quantity})'),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                      ),
+                      _ReportCard(
+                        title: 'Profitability (last 30 days)',
+                        icon: Icons.monetization_on,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Revenue: ${revenue30Days.toStringAsFixed(2)}'),
+                            Text('Gross profit: ${profit30Days.toStringAsFixed(2)}'),
+                            Text('Margin: ${margin30Days.toStringAsFixed(1)}%'),
+                          ],
+                        ),
+                      ),
+                      _ReportCard(
+                        title: 'Customer insights',
+                        icon: Icons.people,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Unique customers: $uniqueCustomers'),
+                            Text(
+                              'Repeat customers: ${repeatCustomers.values.where((count) => count > 1).length}',
+                            ),
                           ],
                         ),
                       ),
