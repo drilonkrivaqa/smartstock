@@ -33,6 +33,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String _query = '';
   ProductFilter _filter = ProductFilter.all;
+  bool _inventoryCountMode = false;
 
   @override
   Widget build(BuildContext context) {
@@ -58,9 +59,28 @@ class _HomePageState extends State<HomePage> {
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.qr_code_scanner),
-                tooltip: 'Scan to find product',
-                onPressed: _scanToFind,
+                icon: Icon(
+                  _inventoryCountMode
+                      ? Icons.inventory_rounded
+                      : Icons.inventory_outlined,
+                ),
+                color: _inventoryCountMode
+                    ? Theme.of(context).colorScheme.primary
+                    : null,
+                tooltip: 'Inventory count mode',
+                onPressed: _toggleInventoryCountMode,
+              ),
+              IconButton(
+                icon: Icon(
+                  _inventoryCountMode
+                      ? Icons.qr_code_2
+                      : Icons.qr_code_scanner,
+                ),
+                tooltip: _inventoryCountMode
+                    ? 'Scan items to count'
+                    : 'Scan to find product',
+                onPressed:
+                    _inventoryCountMode ? _scanToCount : _scanToFind,
               ),
               PopupMenuButton<ProductFilter>(
                 icon: const Icon(Icons.filter_alt_outlined),
@@ -115,6 +135,31 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  if (_inventoryCountMode)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color:
+                            Theme.of(context).colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.inventory_rounded,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Inventory count mode is ON. Each scan will increment product quantity by 1.',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (_inventoryCountMode) const SizedBox(height: 12),
                   TextField(
                     decoration: const InputDecoration(
                       hintText: 'Search by name, SKU or barcode',
@@ -177,10 +222,23 @@ class _HomePageState extends State<HomePage> {
   Future<void> _navigateToForm({Product? product, String? barcode}) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ProductFormPage(
-          productService: widget.productService,
-          existing: product,
-          prefilledBarcode: barcode,
+          builder: (_) => ProductFormPage(
+            productService: widget.productService,
+            existing: product,
+            prefilledBarcode: barcode,
+          ),
+        ),
+      );
+    }
+
+  void _toggleInventoryCountMode() {
+    setState(() => _inventoryCountMode = !_inventoryCountMode);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _inventoryCountMode
+              ? 'Inventory count mode enabled. Scans will add +1 to quantity.'
+              : 'Inventory count mode disabled.',
         ),
       ),
     );
@@ -227,6 +285,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _scanToCount() async {
+    await _openScannerForCounting();
+  }
+
   Future<String?> _openScanner() async {
     return showModalBottomSheet<String>(
       context: context,
@@ -244,6 +306,80 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       },
+    );
+  }
+
+  Future<void> _openScannerForCounting() async {
+    bool isHandling = false;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return SizedBox(
+          height: MediaQuery.of(context).size.height * 0.65,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Inventory count mode',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 4),
+                    Text('Scan items to add +1 to their recorded quantity.'),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: MobileScanner(
+                  onDetect: (capture) async {
+                    final barcode = capture.barcodes.first.rawValue;
+                    if (barcode == null || isHandling) return;
+                    isHandling = true;
+                    await _handleInventoryScan(barcode);
+                    isHandling = false;
+                  },
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Center(
+                  child: Text('Close when finished counting'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleInventoryScan(String code) async {
+    final product = widget.productService.findByBarcode(code);
+    if (product == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No product found for barcode "$code"')),
+      );
+      return;
+    }
+    await widget.productService.adjustStock(
+      product: product,
+      change: 1,
+      type: 'count',
+      note: 'Inventory count scan',
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${product.name} counted. New qty: ${product.quantity + 1}',
+        ),
+      ),
     );
   }
 

@@ -15,6 +15,18 @@ class ProductCard extends StatelessWidget {
   final VoidCallback onTap;
 
   Color _statusColor(ColorScheme scheme) {
+    if (product.expiryDate != null) {
+      final days = product.expiryDate!
+          .difference(DateTime.now())
+          .inDays;
+      if (days < 7) {
+        return Colors.red.shade400;
+      }
+      if (days < 30) {
+        return Colors.orange.shade400;
+      }
+      return Colors.green.shade600;
+    }
     if (product.quantity == 0) {
       return Colors.red.shade400;
     }
@@ -62,6 +74,27 @@ class ProductCard extends StatelessWidget {
                         Text('Qty: ${product.quantity}'),
                       ],
                     ),
+                    if (product.expiryDate != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.event,
+                              size: 18,
+                              color: _statusColor(colorScheme),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _expiryLabel(),
+                              style: TextStyle(
+                                color: _statusColor(colorScheme),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     if (product.location != null && product.location!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
@@ -83,5 +116,21 @@ class ProductCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _expiryLabel() {
+    if (product.expiryDate == null) return '';
+    final now = DateTime.now();
+    final difference = product.expiryDate!.difference(now).inDays;
+    if (difference < 0) {
+      return 'Expired';
+    }
+    if (difference == 0) {
+      return 'Expires today';
+    }
+    if (difference == 1) {
+      return 'Expires in 1 day';
+    }
+    return 'Expires in $difference days';
   }
 }
