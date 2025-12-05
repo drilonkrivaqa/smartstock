@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -60,6 +62,17 @@ class ProductDetailPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (product.photoPath != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.file(
+                          File(product.photoPath!),
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    if (product.photoPath != null) const SizedBox(height: 12),
                     ProductCard(
                       product: product,
                       highlightLowStock: settingsController.highlightLowStock,
@@ -168,7 +181,12 @@ class ProductDetailPage extends StatelessWidget {
                         final list =
                             productService.movementsForProduct(productId);
                         if (list.isEmpty) {
-                          return const Text('No history yet.');
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Text(
+                              'No movements recorded yet. Adjust stock or complete a sale to see history.',
+                            ),
+                          );
                         }
                         return Column(
                           children: list

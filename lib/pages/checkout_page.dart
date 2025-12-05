@@ -3,13 +3,20 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../models/product.dart';
+import '../models/sale.dart';
 import '../services/hive_service.dart';
 import '../services/product_service.dart';
+import '../services/sale_service.dart';
 
 class CheckoutPage extends StatefulWidget {
-  const CheckoutPage({super.key, required this.productService});
+  const CheckoutPage({
+    super.key,
+    required this.productService,
+    required this.saleService,
+  });
 
   final ProductService productService;
+  final SaleService saleService;
 
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
@@ -18,6 +25,15 @@ class CheckoutPage extends StatefulWidget {
 class _CheckoutPageState extends State<CheckoutPage> {
   final Map<int, int> _cartItems = {};
   bool _processing = false;
+  final TextEditingController _customerController = TextEditingController();
+  final TextEditingController _noteController = TextEditingController();
+
+  @override
+  void dispose() {
+    _customerController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -79,7 +95,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
                     if (items.isEmpty) {
                       return const Center(
-                        child: Text('Scan or add products to start a sale.'),
+                        child: Text(
+                            'No items in the cart yet. Scan or add products to start.'),
                       );
                     }
 
@@ -134,6 +151,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     );
                   },
                 ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _customerController,
+                decoration: const InputDecoration(
+                  labelText: 'Customer name (optional)',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _noteController,
+                decoration: const InputDecoration(
+                  labelText: 'Sale note (optional)',
+                ),
+                minLines: 1,
+                maxLines: 2,
               ),
               const SizedBox(height: 12),
               _CheckoutSummary(
@@ -283,6 +316,42 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
     }
 
+    int totalItems = 0;
+    double totalValue = 0;
+    final saleItems = <SaleItem>[];
+
+    for (final entry in _cartItems.entries) {
+      final product = widget.productService.findById(entry.key);
+      if (product == null) continue;
+      final price = product.salePrice ?? 0;
+      totalItems += entry.value;
+      totalValue += price * entry.value;
+      saleItems.add(
+        SaleItem(
+          productId: product.id,
+          quantity: entry.value,
+          unitPrice: price,
+        ),
+      );
+    }
+
+    final saleId = DateTime.now().microsecondsSinceEpoch;
+    final sale = Sale(
+      id: saleId,
+      date: DateTime.now(),
+      totalItems: totalItems,
+      totalValue: totalValue,
+      items: saleItems,
+      customerName: _customerController.text.trim().isEmpty
+          ? null
+          : _customerController.text.trim(),
+      note: _noteController.text.trim().isEmpty
+          ? null
+          : _noteController.text.trim(),
+    );
+
+    await widget.saleService.recordSale(sale);
+
     for (final entry in _cartItems.entries) {
       final product = widget.productService.findById(entry.key);
       if (product == null) continue;
@@ -291,12 +360,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
         change: -entry.value,
         type: 'sale',
         note: 'Checkout sale',
+        saleId: saleId,
       );
     }
 
     setState(() {
       _processing = false;
       _cartItems.clear();
+      _customerController.clear();
+      _noteController.clear();
     });
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

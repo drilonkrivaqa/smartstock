@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../models/product.dart';
@@ -48,15 +50,20 @@ class ProductCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Container(
-                width: 10,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: _statusColor(colorScheme),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              const SizedBox(width: 16),
+              if (product.photoPath != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(
+                    File(product.photoPath!),
+                    width: 64,
+                    height: 64,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _placeholder(colorScheme),
+                  ),
+                )
+              else
+                _placeholder(colorScheme),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,5 +139,20 @@ class ProductCard extends StatelessWidget {
       return 'Expires in 1 day';
     }
     return 'Expires in $difference days';
+  }
+
+  Widget _placeholder(ColorScheme scheme) {
+    return Container(
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(
+        color: scheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(
+        Icons.inventory_2_outlined,
+        color: scheme.primary,
+      ),
+    );
   }
 }
