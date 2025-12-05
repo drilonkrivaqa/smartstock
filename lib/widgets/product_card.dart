@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../models/product.dart';
@@ -52,34 +50,13 @@ class ProductCard extends StatelessWidget {
             children: [
               Container(
                 width: 10,
-                height: 90,
+                height: 60,
                 decoration: BoxDecoration(
                   color: _statusColor(colorScheme),
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              const SizedBox(width: 12),
-              if (product.photoPath != null)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.file(
-                    File(product.photoPath!),
-                    width: 70,
-                    height: 70,
-                    fit: BoxFit.cover,
-                  ),
-                )
-              else
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceVariant,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.image_not_supported_outlined),
-                ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

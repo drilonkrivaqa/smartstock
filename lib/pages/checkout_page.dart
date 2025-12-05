@@ -5,18 +5,11 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../models/product.dart';
 import '../services/hive_service.dart';
 import '../services/product_service.dart';
-import '../services/sale_service.dart';
-import '../models/sale_item.dart';
 
 class CheckoutPage extends StatefulWidget {
-  const CheckoutPage({
-    super.key,
-    required this.productService,
-    required this.saleService,
-  });
+  const CheckoutPage({super.key, required this.productService});
 
   final ProductService productService;
-  final SaleService saleService;
 
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
@@ -290,26 +283,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
     }
 
-    final saleItems = <SaleItem>[];
-
-    for (final entry in _cartItems.entries) {
-      final product = widget.productService.findById(entry.key);
-      if (product == null) continue;
-      final price = product.salePrice ?? 0;
-      saleItems.add(
-        SaleItem(
-          productId: product.id,
-          quantity: entry.value,
-          unitPrice: price,
-        ),
-      );
-    }
-
-    final sale = await widget.saleService.recordSale(
-      items: saleItems,
-      note: 'Checkout sale',
-    );
-
     for (final entry in _cartItems.entries) {
       final product = widget.productService.findById(entry.key);
       if (product == null) continue;
@@ -318,7 +291,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
         change: -entry.value,
         type: 'sale',
         note: 'Checkout sale',
-        saleId: sale.id,
       );
     }
 
