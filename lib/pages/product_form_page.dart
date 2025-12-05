@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../models/product.dart';
@@ -33,6 +36,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
   late TextEditingController _notesController;
   String? _barcode;
   DateTime? _expiryDate;
+  String? _photoPath;
 
   @override
   void initState() {
@@ -55,6 +59,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
     _notesController = TextEditingController(text: existing?.notes ?? '');
     _barcode = widget.prefilledBarcode ?? existing?.barcode;
     _expiryDate = existing?.expiryDate;
+    _photoPath = existing?.photoPath;
   }
 
   @override
@@ -169,6 +174,29 @@ class _ProductFormPageState extends State<ProductFormPage> {
                   ],
                 ),
                 const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _photoPath == null
+                          ? const Text('No photo selected')
+                          : ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(
+                                File(_photoPath!),
+                                height: 80,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      onPressed: _pickPhoto,
+                      icon: const Icon(Icons.photo_camera_back_outlined),
+                      label: const Text('Add photo'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 InkWell(
                   borderRadius: BorderRadius.circular(12),
                   onTap: _pickExpiryDate,
@@ -259,6 +287,14 @@ class _ProductFormPageState extends State<ProductFormPage> {
     }
   }
 
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(source: ImageSource.gallery);
+    if (file != null) {
+      setState(() => _photoPath = file.path);
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final now = DateTime.now();
@@ -289,6 +325,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
           ? null
           : _notesController.text.trim(),
       expiryDate: _expiryDate,
+      photoPath: _photoPath,
     );
     await widget.productService.addOrUpdateProduct(product);
     if (mounted) {

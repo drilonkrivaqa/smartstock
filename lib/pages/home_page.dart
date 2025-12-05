@@ -10,6 +10,7 @@ import '../models/product.dart';
 import '../services/hive_service.dart';
 import '../services/product_service.dart';
 import '../services/settings_service.dart';
+import '../services/sale_service.dart';
 import 'checkout_page.dart';
 import '../widgets/product_card.dart';
 import 'product_detail_page.dart';
@@ -21,10 +22,12 @@ class HomePage extends StatefulWidget {
     super.key,
     required this.productService,
     required this.settingsController,
+    required this.saleService,
   });
 
   final ProductService productService;
   final SettingsController settingsController;
+  final SaleService saleService;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -53,6 +56,7 @@ class _HomePageState extends State<HomePage> {
                     MaterialPageRoute(
                       builder: (_) => CheckoutPage(
                         productService: widget.productService,
+                        saleService: widget.saleService,
                       ),
                     ),
                   );
