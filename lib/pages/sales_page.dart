@@ -4,6 +4,7 @@ import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+import '../models/product.dart'; // or the correct product model file
 
 import '../models/sale.dart';
 import '../services/hive_service.dart';
