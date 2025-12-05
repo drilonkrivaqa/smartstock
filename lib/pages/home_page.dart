@@ -37,6 +37,7 @@ class _ProductsPageState extends State<ProductsPage> {
   String _query = '';
   ProductFilter _filter = ProductFilter.all;
   bool _inventoryCountMode = false;
+  String? _selectedCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -172,42 +173,89 @@ class _ProductsPageState extends State<ProductsPage> {
                     onChanged: (value) => setState(() => _query = value),
                   ),
                   const SizedBox(height: 12),
-                  Expanded(
-                    child: ValueListenableBuilder(
-                      valueListenable: productsBox.listenable(),
-                      builder: (context, Box<Product> box, _) {
-                        final products = widget.productService.getProducts(
-                          searchQuery: _query,
-                          filter: _filter,
-                        );
-                        if (products.isEmpty) {
-                          return const Center(
-                            child: Text('No products yet. Tap + to add one.'),
-                          );
-                        }
-                        return ListView.builder(
-                          itemCount: products.length,
-                          itemBuilder: (context, index) {
-                            final product = products[index];
-                            return ProductCard(
-                              product: product,
-                              highlightLowStock:
-                                  widget.settingsController.highlightLowStock,
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => ProductDetailPage(
-                                    productId: product.id,
-                                    productService: widget.productService,
-                                    settingsController:
-                                        widget.settingsController,
+                  ValueListenableBuilder(
+                    valueListenable: productsBox.listenable(),
+                    builder: (context, Box<Product> box, _) {
+                      final categories = widget.productService.categories();
+                      final hasUncategorized =
+                          widget.productService.hasUncategorized();
+                      final products = widget.productService.getProducts(
+                        searchQuery: _query,
+                        filter: _filter,
+                        category: _selectedCategory,
+                      );
+                      return Expanded(
+                        child: Column(
+                          children: [
+                            if (categories.isNotEmpty || hasUncategorized)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      FilterChip(
+                                        selected: _selectedCategory == null,
+                                        label: const Text('All categories'),
+                                        onSelected: (_) =>
+                                            setState(() => _selectedCategory = null),
+                                      ),
+                                      if (hasUncategorized)
+                                        FilterChip(
+                                          selected:
+                                              _selectedCategory == '__uncategorized__',
+                                          label: const Text('Uncategorized'),
+                                          onSelected: (_) => setState(
+                                            () => _selectedCategory = '__uncategorized__',
+                                          ),
+                                        ),
+                                      ...categories.map(
+                                        (category) => FilterChip(
+                                          selected: _selectedCategory == category,
+                                          label: Text(category),
+                                          onSelected: (_) =>
+                                              setState(() => _selectedCategory = category),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
+                                  const SizedBox(height: 12),
+                                ],
                               ),
-                            );
-                          },
-                        );
-                      },
-                    ),
+                            Expanded(
+                              child: products.isEmpty
+                                  ? const Center(
+                                      child:
+                                          Text('No products yet. Tap + to add one.'),
+                                    )
+                                  : ListView.builder(
+                                      itemCount: products.length,
+                                      itemBuilder: (context, index) {
+                                        final product = products[index];
+                                        return ProductCard(
+                                          product: product,
+                                          highlightLowStock: widget
+                                              .settingsController.highlightLowStock,
+                                          onTap: () => Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => ProductDetailPage(
+                                                productId: product.id,
+                                                productService:
+                                                    widget.productService,
+                                                settingsController:
+                                                    widget.settingsController,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
