@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../models/product.dart';
@@ -33,6 +36,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
   late TextEditingController _notesController;
   String? _barcode;
   DateTime? _expiryDate;
+  String? _photoPath;
 
   @override
   void initState() {
@@ -55,6 +59,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
     _notesController = TextEditingController(text: existing?.notes ?? '');
     _barcode = widget.prefilledBarcode ?? existing?.barcode;
     _expiryDate = existing?.expiryDate;
+    _photoPath = existing?.photoPath;
   }
 
   @override
@@ -94,6 +99,37 @@ class _ProductFormPageState extends State<ProductFormPage> {
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 90,
+                      height: 90,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceVariant,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: _photoPath != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(
+                                File(_photoPath!),
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : const Icon(Icons.image_outlined),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _pickPhoto,
+                        icon: const Icon(Icons.add_a_photo_outlined),
+                        label: Text(_photoPath == null ? 'Add photo' : 'Change photo'),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -259,6 +295,14 @@ class _ProductFormPageState extends State<ProductFormPage> {
     }
   }
 
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() => _photoPath = image.path);
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final now = DateTime.now();
@@ -289,6 +333,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
           ? null
           : _notesController.text.trim(),
       expiryDate: _expiryDate,
+      photoPath: _photoPath,
     );
     await widget.productService.addOrUpdateProduct(product);
     if (mounted) {
