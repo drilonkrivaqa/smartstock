@@ -29,14 +29,13 @@ class ProductAdapter extends TypeAdapter<Product> {
       updatedAt: fields[11] as DateTime,
       notes: fields[12] as String?,
       expiryDate: fields[13] as DateTime?,
-      photoPath: fields[14] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Product obj) {
     writer
-      ..writeByte(15)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -64,8 +63,6 @@ class ProductAdapter extends TypeAdapter<Product> {
       ..writeByte(12)
       ..write(obj.notes)
       ..writeByte(13)
-      ..write(obj.expiryDate)
-      ..writeByte(14)
-      ..write(obj.photoPath);
+      ..write(obj.expiryDate);
   }
 }

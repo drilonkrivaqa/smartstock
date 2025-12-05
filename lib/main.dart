@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'pages/home_page.dart';
-import 'pages/main_shell.dart';
 import 'services/hive_service.dart';
 import 'services/product_service.dart';
-import 'services/sale_service.dart';
 import 'services/settings_service.dart';
 import 'theme/app_theme.dart';
 
@@ -13,12 +11,10 @@ void main() async {
   await HiveService.init();
   final settingsController = await buildSettingsController();
   final productService = await buildProductService();
-  final saleService = await buildSaleService(productService);
   runApp(
     SmartStockApp(
       settingsController: settingsController,
       productService: productService,
-      saleService: saleService,
     ),
   );
 }
@@ -28,12 +24,10 @@ class SmartStockApp extends StatelessWidget {
     super.key,
     required this.settingsController,
     required this.productService,
-    required this.saleService,
   });
 
   final SettingsController settingsController;
   final ProductService productService;
-  final SaleService saleService;
 
   @override
   Widget build(BuildContext context) {
@@ -47,10 +41,9 @@ class SmartStockApp extends StatelessWidget {
           darkTheme: AppTheme.dark(),
           themeMode:
               settingsController.darkMode ? ThemeMode.dark : ThemeMode.light,
-          home: MainShell(
+          home: HomePage(
             productService: productService,
             settingsController: settingsController,
-            saleService: saleService,
           ),
         );
       },

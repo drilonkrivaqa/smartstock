@@ -22,9 +22,6 @@ class StockMovement extends HiveObject {
   @HiveField(5)
   String? note;
 
-  @HiveField(6)
-  int? saleId;
-
   StockMovement({
     required this.id,
     required this.productId,
@@ -32,6 +29,5 @@ class StockMovement extends HiveObject {
     required this.type,
     required this.date,
     this.note,
-    this.saleId,
   });
 }
