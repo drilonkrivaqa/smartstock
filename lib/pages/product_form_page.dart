@@ -32,6 +32,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
   late TextEditingController _minQuantityController;
   late TextEditingController _notesController;
   String? _barcode;
+  DateTime? _expiryDate;
 
   @override
   void initState() {
@@ -53,6 +54,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
         TextEditingController(text: existing?.minQuantity.toString() ?? '0');
     _notesController = TextEditingController(text: existing?.notes ?? '');
     _barcode = widget.prefilledBarcode ?? existing?.barcode;
+    _expiryDate = existing?.expiryDate;
   }
 
   @override
@@ -167,6 +169,34 @@ class _ProductFormPageState extends State<ProductFormPage> {
                   ],
                 ),
                 const SizedBox(height: 12),
+                InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: _pickExpiryDate,
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Expiry date (optional)',
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _expiryDate != null
+                                ? _formatDate(_expiryDate!)
+                                : 'Not set',
+                          ),
+                        ),
+                        if (_expiryDate != null)
+                          IconButton(
+                            onPressed: () => setState(() => _expiryDate = null),
+                            icon: const Icon(Icons.clear),
+                            tooltip: 'Clear expiry date',
+                          ),
+                        const Icon(Icons.calendar_month),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 if (_barcode != null)
                   Align(
                     alignment: Alignment.centerLeft,
@@ -258,6 +288,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
+      expiryDate: _expiryDate,
     );
     await widget.productService.addOrUpdateProduct(product);
     if (mounted) {
@@ -269,5 +300,23 @@ class _ProductFormPageState extends State<ProductFormPage> {
         ),
       );
     }
+  }
+
+  Future<void> _pickExpiryDate() async {
+    final now = DateTime.now();
+    final selected = await showDatePicker(
+      context: context,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 10),
+      initialDate: _expiryDate ?? now,
+    );
+    if (selected != null) {
+      setState(() => _expiryDate = selected);
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    final twoDigits = (int value) => value.toString().padLeft(2, '0');
+    return '${date.year}-${twoDigits(date.month)}-${twoDigits(date.day)}';
   }
 }

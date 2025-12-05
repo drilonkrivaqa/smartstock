@@ -43,6 +43,9 @@ class Product extends HiveObject {
   @HiveField(12)
   String? notes;
 
+  @HiveField(13)
+  DateTime? expiryDate;
+
   Product({
     required this.id,
     required this.name,
@@ -57,6 +60,7 @@ class Product extends HiveObject {
     required this.createdAt,
     required this.updatedAt,
     this.notes,
+    this.expiryDate,
   });
 
   Product copyWith({
@@ -72,6 +76,7 @@ class Product extends HiveObject {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? notes,
+    DateTime? expiryDate,
   }) {
     return Product(
       id: id,
@@ -87,6 +92,7 @@ class Product extends HiveObject {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       notes: notes ?? this.notes,
+      expiryDate: expiryDate ?? this.expiryDate,
     );
   }
 }

@@ -130,16 +130,20 @@ class ProductDetailPage extends StatelessWidget {
                                   : '-',
                             ),
                             _InfoRow(
-                              label: 'Sale price',
-                              value: product.salePrice != null
-                                  ? product.salePrice!.toStringAsFixed(2)
-                                  : '-',
-                            ),
-                            _InfoRow(
-                              label: 'Minimum qty',
-                              value: product.minQuantity.toString(),
-                            ),
-                            if (product.notes != null && product.notes!.isNotEmpty)
+                          label: 'Sale price',
+                          value: product.salePrice != null
+                              ? product.salePrice!.toStringAsFixed(2)
+                              : '-',
+                        ),
+                        _InfoRow(
+                          label: 'Expiry',
+                          value: _expiryDescription(product),
+                        ),
+                        _InfoRow(
+                          label: 'Minimum qty',
+                          value: product.minQuantity.toString(),
+                        ),
+                        if (product.notes != null && product.notes!.isNotEmpty)
                               Padding(
                                 padding:
                                     const EdgeInsets.only(top: 12, bottom: 4),
@@ -215,4 +219,16 @@ class _InfoRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String _expiryDescription(Product product) {
+  if (product.expiryDate == null) return '-';
+  final date = product.expiryDate!;
+  final twoDigits = (int value) => value.toString().padLeft(2, '0');
+  final formatted = '${date.year}-${twoDigits(date.month)}-${twoDigits(date.day)}';
+  final days = date.difference(DateTime.now()).inDays;
+  if (days < 0) return '$formatted (Expired)';
+  if (days == 0) return '$formatted (Expires today)';
+  if (days == 1) return '$formatted (Expires in 1 day)';
+  return '$formatted (Expires in $days days)';
 }
