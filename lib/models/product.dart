@@ -46,6 +46,9 @@ class Product extends HiveObject {
   @HiveField(13)
   DateTime? expiryDate;
 
+  @HiveField(14)
+  String? photoPath;
+
   Product({
     required this.id,
     required this.name,
@@ -61,6 +64,7 @@ class Product extends HiveObject {
     required this.updatedAt,
     this.notes,
     this.expiryDate,
+    this.photoPath,
   });
 
   Product copyWith({
@@ -77,6 +81,7 @@ class Product extends HiveObject {
     DateTime? updatedAt,
     String? notes,
     DateTime? expiryDate,
+    String? photoPath,
   }) {
     return Product(
       id: id,
@@ -93,6 +98,7 @@ class Product extends HiveObject {
       updatedAt: updatedAt ?? this.updatedAt,
       notes: notes ?? this.notes,
       expiryDate: expiryDate ?? this.expiryDate,
+      photoPath: photoPath ?? this.photoPath,
     );
   }
 }
