@@ -73,8 +73,8 @@ class ReportsPage extends StatelessWidget {
                     last30Days,
                     startOfDay.add(const Duration(days: 1)),
                   );
-                  final revenue30Days = saleService.salesTotalFor(
-                    last30Days.subtract(const Duration(seconds: 1)),
+              final revenue30Days = saleService.salesTotalFor(
+                last30Days.subtract(const Duration(seconds: 1)),
                     startOfDay.add(const Duration(days: 1)),
                   );
                   final margin30Days = revenue30Days == 0
@@ -97,6 +97,44 @@ class ReportsPage extends StatelessWidget {
                     map.update(name, (value) => value + 1, ifAbsent: () => 1);
                     return map;
                   });
+                  final reorderSuggestions = products
+                      .where((p) => p.quantity < p.minQuantity)
+                      .map(
+                        (p) => _ReorderSuggestion(
+                          product: p,
+                          recommendedQuantity:
+                              (p.minQuantity - p.quantity) + (p.minQuantity * 0.2).ceil(),
+                        ),
+                      )
+                      .toList()
+                    ..sort(
+                      (a, b) => b.recommendedQuantity.compareTo(a.recommendedQuantity),
+                    );
+                  final demand30Days = soldLast30Days.values.fold<int>(0, (sum, qty) => sum + qty);
+                  final averageDailyDemand = demand30Days / 30;
+                  final inventoryCoverageDays = averageDailyDemand == 0
+                      ? null
+                      : (totalStockUnits / averageDailyDemand).ceil();
+                  final salesLast30Days = saleService.getSalesInRange(
+                    last30Days,
+                    startOfDay.add(const Duration(days: 1)),
+                  );
+                  final categoryMix = <String, double>{};
+                  final productLookup = saleService.productLookup();
+                  for (final sale in salesLast30Days) {
+                    for (final item in sale.items) {
+                      final category =
+                          (productLookup[item.productId]?.category ?? 'Uncategorized').trim();
+                      categoryMix.update(
+                        category.isEmpty ? 'Uncategorized' : category,
+                        (value) =>
+                            value + (item.quantity * item.unitPrice),
+                        ifAbsent: () => item.quantity * item.unitPrice,
+                      );
+                    }
+                  }
+                  final totalCategoryRevenue =
+                      categoryMix.values.fold<double>(0, (sum, value) => sum + value);
                   return ListView(
                     children: [
                       _ReportCard(
@@ -108,9 +146,28 @@ class ReportsPage extends StatelessWidget {
                             Text('Products: ${products.length}'),
                             Text('Units in stock: $totalStockUnits'),
                             Text('Stock value: ${totalStockValue.toStringAsFixed(2)}'),
+                            if (inventoryCoverageDays != null)
+                              Text('Coverage: ~$inventoryCoverageDays days at current pace'),
                           ],
                         ),
                       ),
+                      if (reorderSuggestions.isNotEmpty)
+                        _ReportCard(
+                          title: 'Reorder suggestions',
+                          icon: Icons.local_shipping,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: reorderSuggestions.take(5).map((suggestion) {
+                              final product = suggestion.product;
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 3),
+                                child: Text(
+                                  '${product.name} • Order ${suggestion.recommendedQuantity} to reach safety stock',
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
                       _ReportCard(
                         title: 'Low stock',
                         icon: Icons.warning_amber,
@@ -204,6 +261,7 @@ class ReportsPage extends StatelessWidget {
                             Text('Revenue: ${revenue30Days.toStringAsFixed(2)}'),
                             Text('Gross profit: ${profit30Days.toStringAsFixed(2)}'),
                             Text('Margin: ${margin30Days.toStringAsFixed(1)}%'),
+                            Text('Avg daily revenue (30d): ${(revenue30Days / 30).toStringAsFixed(2)}'),
                           ],
                         ),
                       ),
@@ -220,6 +278,26 @@ class ReportsPage extends StatelessWidget {
                           ],
                         ),
                       ),
+                      _ReportCard(
+                        title: 'Category performance (last 30 days)',
+                        icon: Icons.pie_chart,
+                        child: categoryMix.isEmpty
+                            ? const Text('No sales data in the last 30 days yet.')
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: categoryMix.entries.map((entry) {
+                                  final share = totalCategoryRevenue == 0
+                                      ? 0
+                                      : (entry.value / totalCategoryRevenue) * 100;
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 3),
+                                    child: Text(
+                                      '${entry.key}: ${entry.value.toStringAsFixed(2)} (${share.toStringAsFixed(1)}%)',
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                      ),
                     ],
                   );
                 },
@@ -230,6 +308,13 @@ class ReportsPage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ReorderSuggestion {
+  _ReorderSuggestion({required this.product, required this.recommendedQuantity});
+
+  final Product product;
+  final int recommendedQuantity;
 }
 
 class _ReportCard extends StatelessWidget {
