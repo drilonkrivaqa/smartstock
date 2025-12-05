@@ -168,18 +168,7 @@ class ProductDetailPage extends StatelessWidget {
                         final list =
                             productService.movementsForProduct(productId);
                         if (list.isEmpty) {
-                          return Card(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                children: const [
-                                  Icon(Icons.history_toggle_off, size: 32),
-                                  SizedBox(height: 8),
-                                  Text('No movements yet for this product.'),
-                                ],
-                              ),
-                            ),
-                          );
+                          return const Text('No history yet.');
                         }
                         return Column(
                           children: list

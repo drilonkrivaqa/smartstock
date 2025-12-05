@@ -55,7 +55,6 @@ class ProductService {
     required String type,
     String? note,
     DateTime? date,
-    int? saleId,
   }) async {
     final updatedProduct = product.copyWith(
       quantity: product.quantity + change,
@@ -69,7 +68,6 @@ class ProductService {
       type: type,
       date: date ?? DateTime.now(),
       note: note,
-      saleId: saleId,
     );
     await movementsBox.add(movement);
   }
