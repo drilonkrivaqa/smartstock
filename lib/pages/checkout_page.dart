@@ -7,16 +7,19 @@ import '../models/sale.dart';
 import '../services/hive_service.dart';
 import '../services/product_service.dart';
 import '../services/sale_service.dart';
+import '../services/settings_service.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({
     super.key,
     required this.productService,
     required this.saleService,
+    required this.settingsController,
   });
 
   final ProductService productService;
   final SaleService saleService;
+  final SettingsController settingsController;
 
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
@@ -25,6 +28,7 @@ class CheckoutPage extends StatefulWidget {
 class _CheckoutPageState extends State<CheckoutPage> {
   final Map<int, int> _cartItems = {};
   bool _processing = false;
+
   final TextEditingController _customerController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
 
@@ -38,18 +42,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
   @override
   Widget build(BuildContext context) {
     final productsBox = Hive.box<Product>(HiveService.productsBox);
+    final locationName = widget.settingsController.activeLocation;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Checkout'),
+        title: Text('Checkout – $locationName'),
         actions: [
           if (_cartItems.isNotEmpty)
             IconButton(
               tooltip: 'Clear cart',
               onPressed: _processing
                   ? null
-                  : () => setState(() {
-                        _cartItems.clear();
-                      }),
+                  : () {
+                setState(() {
+                  _cartItems.clear();
+                });
+              },
               icon: const Icon(Icons.delete_outline),
             ),
         ],
@@ -85,31 +93,40 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   builder: (context, Box<Product> _, __) {
                     final items = _cartItems.entries
                         .map((entry) {
-                          final product =
-                              widget.productService.findById(entry.key);
-                          if (product == null) return null;
-                          return _CartEntry(product: product, quantity: entry.value);
-                        })
+                      final product =
+                      widget.productService.findById(entry.key);
+                      if (product == null) return null;
+                      return _CartEntry(
+                        product: product,
+                        quantity: entry.value,
+                      );
+                    })
                         .whereType<_CartEntry>()
                         .toList();
 
                     if (items.isEmpty) {
                       return const Center(
                         child: Text(
-                            'No items in the cart yet. Scan or add products to start.'),
+                          'No items in the cart yet.\n'
+                              'Scan or add products to start.',
+                          textAlign: TextAlign.center,
+                        ),
                       );
                     }
 
                     return ListView.separated(
                       itemCount: items.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      separatorBuilder: (_, __) =>
+                      const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final item = items[index];
                         final maxAvailable = item.product.quantity;
                         final canIncrease = item.quantity < maxAvailable;
                         final price = item.product.salePrice;
-                        final lineTotal =
-                            price != null ? price * item.quantity : null;
+                        final lineTotal = price != null
+                            ? price * item.quantity
+                            : null;
+
                         return Card(
                           child: ListTile(
                             title: Text(item.product.name),
@@ -119,7 +136,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 Text('In stock: $maxAvailable'),
                                 if (price != null)
                                   Text(
-                                    'Price: ${price.toStringAsFixed(2)}${lineTotal != null ? ' | Line: ${lineTotal.toStringAsFixed(2)}' : ''}',
+                                    'Price: ${price.toStringAsFixed(2)}'
+                                        '${lineTotal != null ? ' | Line: ${lineTotal.toStringAsFixed(2)}' : ''}',
                                   ),
                               ],
                             ),
@@ -129,19 +147,26 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 IconButton(
                                   onPressed: _processing
                                       ? null
-                                      : () => _decreaseQuantity(item.product.id),
-                                  icon: const Icon(Icons.remove_circle_outline),
+                                      : () => _decreaseQuantity(
+                                    item.product.id,
+                                  ),
+                                  icon: const Icon(
+                                      Icons.remove_circle_outline),
                                 ),
                                 Text(
                                   item.quantity.toString(),
-                                  style:
-                                      Theme.of(context).textTheme.titleMedium,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium,
                                 ),
                                 IconButton(
                                   onPressed: _processing || !canIncrease
                                       ? null
-                                      : () => _increaseQuantity(item.product.id),
-                                  icon: const Icon(Icons.add_circle_outline),
+                                      : () => _increaseQuantity(
+                                    item.product.id,
+                                  ),
+                                  icon: const Icon(
+                                      Icons.add_circle_outline),
                                 ),
                               ],
                             ),
@@ -185,15 +210,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Future<void> _scanAndAdd() async {
     final code = await _openScanner();
     if (code == null) return;
+
     final product = widget.productService.findByBarcode(code);
     if (product == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No product found for barcode "$code".')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No product found for barcode "$code".'),
+        ),
+      );
       return;
     }
+
     _addProductToCart(product);
   }
 
@@ -203,6 +231,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       isScrollControlled: true,
       builder: (context) {
         String query = '';
+
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -213,6 +242,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   .getProducts(searchQuery: query)
                   .where((p) => p.quantity > 0)
                   .toList();
+
               return SizedBox(
                 height: MediaQuery.of(context).size.height * 0.7,
                 child: Column(
@@ -224,28 +254,32 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           hintText: 'Search products',
                           prefixIcon: Icon(Icons.search),
                         ),
-                        onChanged: (value) => setSheetState(() {
-                          query = value;
-                        }),
+                        onChanged: (value) {
+                          setSheetState(() {
+                            query = value;
+                          });
+                        },
                       ),
                     ),
                     Expanded(
                       child: products.isEmpty
                           ? const Center(
-                              child: Text('No products found.'),
-                            )
+                        child: Text('No products found.'),
+                      )
                           : ListView.builder(
-                              itemCount: products.length,
-                              itemBuilder: (context, index) {
-                                final product = products[index];
-                                return ListTile(
-                                  title: Text(product.name),
-                                  subtitle:
-                                      Text('In stock: ${product.quantity}'),
-                                  onTap: () => Navigator.of(context).pop(product),
-                                );
-                              },
+                        itemCount: products.length,
+                        itemBuilder: (context, index) {
+                          final product = products[index];
+                          return ListTile(
+                            title: Text(product.name),
+                            subtitle: Text(
+                              'In stock: ${product.quantity}',
                             ),
+                            onTap: () =>
+                                Navigator.of(context).pop(product),
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -255,6 +289,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         );
       },
     );
+
     if (product != null) {
       _addProductToCart(product);
     }
@@ -267,27 +302,34 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
       return;
     }
+
     setState(() {
-      _cartItems.update(product.id, (value) => value + 1, ifAbsent: () => 1);
+      _cartItems.update(product.id, (value) => value + 1,
+          ifAbsent: () => 1);
     });
   }
 
   void _increaseQuantity(int productId) {
     final product = widget.productService.findById(productId);
     if (product == null) return;
+
     final current = _cartItems[productId] ?? 0;
     if (current >= product.quantity) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Only ${product.quantity} in stock.')),
+        SnackBar(
+          content: Text('Only ${product.quantity} in stock.'),
+        ),
       );
       return;
     }
+
     setState(() => _cartItems[productId] = current + 1);
   }
 
   void _decreaseQuantity(int productId) {
     final current = _cartItems[productId];
     if (current == null) return;
+
     if (current <= 1) {
       setState(() => _cartItems.remove(productId));
     } else {
@@ -297,8 +339,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   Future<void> _completeSale() async {
     if (_cartItems.isEmpty || _processing) return;
+
     setState(() => _processing = true);
 
+    // Validate stock
     for (final entry in _cartItems.entries) {
       final product = widget.productService.findById(entry.key);
       if (product == null) continue;
@@ -307,7 +351,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                  'Not enough stock for ${product.name}. Available: ${product.quantity}'),
+                'Not enough stock for ${product.name}. '
+                    'Available: ${product.quantity}',
+              ),
             ),
           );
         }
@@ -323,9 +369,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
     for (final entry in _cartItems.entries) {
       final product = widget.productService.findById(entry.key);
       if (product == null) continue;
+
       final price = product.salePrice ?? 0;
       totalItems += entry.value;
       totalValue += price * entry.value;
+
       saleItems.add(
         SaleItem(
           productId: product.id,
@@ -336,6 +384,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     final saleId = DateTime.now().microsecondsSinceEpoch;
+    final locationName = widget.settingsController.activeLocation;
+
     final sale = Sale(
       id: saleId,
       date: DateTime.now(),
@@ -348,6 +398,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       note: _noteController.text.trim().isEmpty
           ? null
           : _noteController.text.trim(),
+      locationName: locationName,
     );
 
     await widget.saleService.recordSale(sale);
@@ -355,6 +406,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     for (final entry in _cartItems.entries) {
       final product = widget.productService.findById(entry.key);
       if (product == null) continue;
+
       await widget.productService.adjustStock(
         product: product,
         change: -entry.value,
@@ -370,11 +422,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
       _customerController.clear();
       _noteController.clear();
     });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sale completed and stock updated.')),
-      );
-    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Sale completed and stock updated.'),
+      ),
+    );
   }
 
   Future<String?> _openScanner() async {
@@ -419,6 +473,7 @@ class _CheckoutSummary extends StatelessWidget {
     items.forEach((id, quantity) {
       final product = productService.findById(id);
       if (product == null) return;
+
       totalItems += quantity;
       if (product.salePrice != null) {
         totalValue += product.salePrice! * quantity;

@@ -42,12 +42,15 @@ class _ProductsPageState extends State<ProductsPage> {
   @override
   Widget build(BuildContext context) {
     final productsBox = Hive.box<Product>(HiveService.productsBox);
+
     return AnimatedBuilder(
       animation: widget.settingsController,
       builder: (context, _) {
+        final activeLocation = widget.settingsController.activeLocation;
+
         return Scaffold(
           appBar: AppBar(
-            title: const Text('SmartStock'),
+            title: Text('SmartStock – $activeLocation'),
             actions: [
               IconButton(
                 icon: const Icon(Icons.point_of_sale),
@@ -58,6 +61,7 @@ class _ProductsPageState extends State<ProductsPage> {
                       builder: (_) => CheckoutPage(
                         productService: widget.productService,
                         saleService: widget.saleService,
+                        settingsController: widget.settingsController,
                       ),
                     ),
                   );
@@ -85,11 +89,12 @@ class _ProductsPageState extends State<ProductsPage> {
                     ? 'Scan items to count'
                     : 'Scan to find product',
                 onPressed:
-                    _inventoryCountMode ? _scanToCount : _scanToFind,
+                _inventoryCountMode ? _scanToCount : _scanToFind,
               ),
-              PopupMenuButton<ProductFilter>(
+              PopupMenuButton(
                 icon: const Icon(Icons.filter_alt_outlined),
-                onSelected: (filter) => setState(() => _filter = filter),
+                onSelected: (filter) =>
+                    setState(() => _filter = filter as ProductFilter),
                 itemBuilder: (context) => const [
                   PopupMenuItem(
                     value: ProductFilter.all,
@@ -105,7 +110,7 @@ class _ProductsPageState extends State<ProductsPage> {
                   ),
                 ],
               ),
-              PopupMenuButton<String>(
+              PopupMenuButton(
                 onSelected: (value) {
                   switch (value) {
                     case 'settings':
@@ -145,8 +150,9 @@ class _ProductsPageState extends State<ProductsPage> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color:
-                            Theme.of(context).colorScheme.secondaryContainer,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .secondaryContainer,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -158,7 +164,8 @@ class _ProductsPageState extends State<ProductsPage> {
                           const SizedBox(width: 12),
                           const Expanded(
                             child: Text(
-                              'Inventory count mode is ON. Each scan will increment product quantity by 1.',
+                              'Inventory count mode is ON.\n'
+                                  'Each scan will increment product quantity by 1.',
                             ),
                           ),
                         ],
@@ -170,52 +177,68 @@ class _ProductsPageState extends State<ProductsPage> {
                       hintText: 'Search by name, SKU or barcode',
                       prefixIcon: Icon(Icons.search),
                     ),
-                    onChanged: (value) => setState(() => _query = value),
+                    onChanged: (value) =>
+                        setState(() => _query = value),
                   ),
                   const SizedBox(height: 12),
                   ValueListenableBuilder(
                     valueListenable: productsBox.listenable(),
-                    builder: (context, Box<Product> box, _) {
-                      final categories = widget.productService.categories();
+                    builder:
+                        (context, Box<Product> box, _) {
+                      final categories =
+                      widget.productService.categories();
                       final hasUncategorized =
-                          widget.productService.hasUncategorized();
-                      final products = widget.productService.getProducts(
+                      widget.productService.hasUncategorized();
+                      final products =
+                      widget.productService.getProducts(
                         searchQuery: _query,
                         filter: _filter,
                         category: _selectedCategory,
                       );
+
                       return Expanded(
                         child: Column(
                           children: [
                             if (categories.isNotEmpty || hasUncategorized)
                               Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment:
+                                CrossAxisAlignment.start,
                                 children: [
                                   Wrap(
                                     spacing: 8,
                                     runSpacing: 8,
                                     children: [
                                       FilterChip(
-                                        selected: _selectedCategory == null,
+                                        selected:
+                                        _selectedCategory == null,
                                         label: const Text('All categories'),
-                                        onSelected: (_) =>
-                                            setState(() => _selectedCategory = null),
+                                        onSelected: (_) => setState(
+                                              () =>
+                                          _selectedCategory = null,
+                                        ),
                                       ),
                                       if (hasUncategorized)
                                         FilterChip(
                                           selected:
-                                              _selectedCategory == '__uncategorized__',
-                                          label: const Text('Uncategorized'),
+                                          _selectedCategory ==
+                                              '__uncategorized__',
+                                          label: const Text(
+                                              'Uncategorized'),
                                           onSelected: (_) => setState(
-                                            () => _selectedCategory = '__uncategorized__',
+                                                () => _selectedCategory =
+                                            '__uncategorized__',
                                           ),
                                         ),
                                       ...categories.map(
-                                        (category) => FilterChip(
-                                          selected: _selectedCategory == category,
+                                            (category) => FilterChip(
+                                          selected:
+                                          _selectedCategory ==
+                                              category,
                                           label: Text(category),
-                                          onSelected: (_) =>
-                                              setState(() => _selectedCategory = category),
+                                          onSelected: (_) => setState(
+                                                () => _selectedCategory =
+                                                category,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -226,31 +249,39 @@ class _ProductsPageState extends State<ProductsPage> {
                             Expanded(
                               child: products.isEmpty
                                   ? const Center(
-                                      child:
-                                          Text('No products yet. Tap + to add one.'),
-                                    )
+                                child: Text(
+                                  'No products yet.\nTap + to add one.',
+                                  textAlign: TextAlign.center,
+                                ),
+                              )
                                   : ListView.builder(
-                                      itemCount: products.length,
-                                      itemBuilder: (context, index) {
-                                        final product = products[index];
-                                        return ProductCard(
-                                          product: product,
-                                          highlightLowStock: widget
-                                              .settingsController.highlightLowStock,
-                                          onTap: () => Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) => ProductDetailPage(
-                                                productId: product.id,
-                                                productService:
-                                                    widget.productService,
-                                                settingsController:
-                                                    widget.settingsController,
-                                              ),
-                                            ),
+                                itemCount: products.length,
+                                itemBuilder: (context, index) {
+                                  final product =
+                                  products[index];
+                                  return ProductCard(
+                                    product: product,
+                                    highlightLowStock: widget
+                                        .settingsController
+                                        .highlightLowStock,
+                                    onTap: () =>
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                ProductDetailPage(
+                                                  productId: product.id,
+                                                  productService:
+                                                  widget
+                                                      .productService,
+                                                  settingsController:
+                                                  widget
+                                                      .settingsController,
+                                                ),
                                           ),
-                                        );
-                                      },
-                                    ),
+                                        ),
+                                  );
+                                },
+                              ),
                             ),
                           ],
                         ),
@@ -271,17 +302,20 @@ class _ProductsPageState extends State<ProductsPage> {
     );
   }
 
-  Future<void> _navigateToForm({Product? product, String? barcode}) async {
+  Future<void> _navigateToForm({
+    Product? product,
+    String? barcode,
+  }) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-          builder: (_) => ProductFormPage(
-            productService: widget.productService,
-            existing: product,
-            prefilledBarcode: barcode,
-          ),
+        builder: (_) => ProductFormPage(
+          productService: widget.productService,
+          existing: product,
+          prefilledBarcode: barcode,
         ),
-      );
-    }
+      ),
+    );
+  }
 
   void _toggleInventoryCountMode() {
     setState(() => _inventoryCountMode = !_inventoryCountMode);
@@ -289,7 +323,7 @@ class _ProductsPageState extends State<ProductsPage> {
       SnackBar(
         content: Text(
           _inventoryCountMode
-              ? 'Inventory count mode enabled. Scans will add +1 to quantity.'
+              ? 'Inventory count mode enabled.\nScans will add +1 to quantity.'
               : 'Inventory count mode disabled.',
         ),
       ),
@@ -299,26 +333,28 @@ class _ProductsPageState extends State<ProductsPage> {
   Future<void> _scanToFind() async {
     final code = await _openScanner();
     if (code == null) return;
+
     final product = widget.productService.findByBarcode(code);
     if (product != null) {
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ProductDetailPage(
-              productId: product.id,
-              productService: widget.productService,
-              settingsController: widget.settingsController,
-            ),
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ProductDetailPage(
+            productId: product.id,
+            productService: widget.productService,
+            settingsController: widget.settingsController,
           ),
-        );
-      }
+        ),
+      );
     } else {
       if (!mounted) return;
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
           title: const Text('Product not found'),
-          content: Text('Create a new product for barcode "$code"?'),
+          content: Text(
+            'Create a new product for barcode "$code"?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -363,6 +399,7 @@ class _ProductsPageState extends State<ProductsPage> {
 
   Future<void> _openScannerForCounting() async {
     bool isHandling = false;
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -419,12 +456,14 @@ class _ProductsPageState extends State<ProductsPage> {
       );
       return;
     }
+
     await widget.productService.adjustStock(
       product: product,
       change: 1,
       type: 'count',
       note: 'Inventory count scan',
     );
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -437,7 +476,8 @@ class _ProductsPageState extends State<ProductsPage> {
 
   Future<void> _exportStockReport() async {
     final products = widget.productService.getProducts();
-    final rows = [
+
+    final rows = <List<String>>[
       [
         'Product name',
         'SKU',
@@ -447,7 +487,7 @@ class _ProductsPageState extends State<ProductsPage> {
         'Min quantity',
       ],
       ...products.map(
-        (p) => [
+            (p) => [
           p.name,
           p.sku ?? '',
           p.category ?? '',
@@ -457,16 +497,17 @@ class _ProductsPageState extends State<ProductsPage> {
         ],
       ),
     ];
+
     final csvData = const ListToCsvConverter().convert(rows);
     final directory = await getApplicationDocumentsDirectory();
     final file = File(
       '${directory.path}/stock_report_${DateTime.now().millisecondsSinceEpoch}.csv',
     );
     await file.writeAsString(csvData);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Report saved to ${file.path}')),
-      );
-    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Report saved to ${file.path}')),
+    );
   }
 }

@@ -25,6 +25,11 @@ class Sale extends HiveObject {
   @HiveField(6)
   String? note;
 
+  /// Name of the selling point (store / supermarket) where this sale happened.
+  /// Example: "Main supermarket", "Mini market #2"
+  @HiveField(7)
+  String? locationName;
+
   Sale({
     required this.id,
     required this.date,
@@ -33,6 +38,7 @@ class Sale extends HiveObject {
     required this.items,
     this.customerName,
     this.note,
+    this.locationName,
   });
 }
 
