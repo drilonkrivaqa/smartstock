@@ -25,6 +25,10 @@ class StockMovement extends HiveObject {
   @HiveField(6)
   List<StockMovementLine> lines;
 
+  /// Optional reason for adjustments and waste (expired, broken, stolen, etc.).
+  @HiveField(7)
+  String? reasonCode;
+
   StockMovement({
     required this.id,
     required this.type,
@@ -33,6 +37,7 @@ class StockMovement extends HiveObject {
     this.fromLocationId,
     this.toLocationId,
     this.note,
+    this.reasonCode,
   });
 }
 
@@ -47,9 +52,17 @@ class StockMovementLine {
   @HiveField(2)
   double unitCost;
 
+  @HiveField(3)
+  String? batchCode;
+
+  @HiveField(4)
+  DateTime? expiryDate;
+
   StockMovementLine({
     required this.productId,
     required this.quantity,
     required this.unitCost,
+    this.batchCode,
+    this.expiryDate,
   });
 }

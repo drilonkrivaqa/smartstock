@@ -1,53 +1,47 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'stock_movement.dart';
+part of 'audit.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
 // **************************************************************************
 
-class StockMovementAdapter extends TypeAdapter<StockMovement> {
+class AuditSessionAdapter extends TypeAdapter<AuditSession> {
   @override
-  final int typeId = 1;
+  final int typeId = 7;
 
   @override
-  StockMovement read(BinaryReader reader) {
+  AuditSession read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return StockMovement(
+    return AuditSession(
       id: fields[0] as int,
-      type: fields[1] as String,
-      date: fields[4] as DateTime,
-      lines: (fields[6] as List).cast<StockMovementLine>(),
-      fromLocationId: fields[2] as int?,
-      toLocationId: fields[3] as int?,
-      note: fields[5] as String?,
-      reasonCode: fields[7] as String?,
+      locationId: fields[1] as int,
+      startedAt: fields[2] as DateTime,
+      status: fields[4] as String,
+      finishedAt: fields[3] as DateTime?,
+      lines: (fields[5] as List?)?.cast<AuditLine>() ?? [],
     );
   }
 
   @override
-  void write(BinaryWriter writer, StockMovement obj) {
+  void write(BinaryWriter writer, AuditSession obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
-      ..write(obj.type)
+      ..write(obj.locationId)
       ..writeByte(2)
-      ..write(obj.fromLocationId)
+      ..write(obj.startedAt)
       ..writeByte(3)
-      ..write(obj.toLocationId)
+      ..write(obj.finishedAt)
       ..writeByte(4)
-      ..write(obj.date)
+      ..write(obj.status)
       ..writeByte(5)
-      ..write(obj.note)
-      ..writeByte(6)
-      ..write(obj.lines)
-      ..writeByte(7)
-      ..write(obj.reasonCode);
+      ..write(obj.lines);
   }
 
   @override
@@ -56,44 +50,47 @@ class StockMovementAdapter extends TypeAdapter<StockMovement> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is StockMovementAdapter &&
+      other is AuditSessionAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }
 
-class StockMovementLineAdapter extends TypeAdapter<StockMovementLine> {
+class AuditLineAdapter extends TypeAdapter<AuditLine> {
   @override
-  final int typeId = 6;
+  final int typeId = 8;
 
   @override
-  StockMovementLine read(BinaryReader reader) {
+  AuditLine read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return StockMovementLine(
+    return AuditLine(
       productId: fields[0] as int,
-      quantity: fields[1] as double,
-      unitCost: fields[2] as double,
-      batchCode: fields[3] as String?,
-      expiryDate: fields[4] as DateTime?,
+      countedQuantity: fields[1] as double,
+      expectedQuantity: fields[2] as double,
+      difference: fields[3] as double?,
+      differenceValue: fields[4] as double?,
+      unitCost: fields[5] as double,
     );
   }
 
   @override
-  void write(BinaryWriter writer, StockMovementLine obj) {
+  void write(BinaryWriter writer, AuditLine obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.productId)
       ..writeByte(1)
-      ..write(obj.quantity)
+      ..write(obj.countedQuantity)
       ..writeByte(2)
-      ..write(obj.unitCost)
+      ..write(obj.expectedQuantity)
       ..writeByte(3)
-      ..write(obj.batchCode)
+      ..write(obj.difference)
       ..writeByte(4)
-      ..write(obj.expiryDate);
+      ..write(obj.differenceValue)
+      ..writeByte(5)
+      ..write(obj.unitCost);
   }
 
   @override
@@ -102,7 +99,7 @@ class StockMovementLineAdapter extends TypeAdapter<StockMovementLine> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is StockMovementLineAdapter &&
+      other is AuditLineAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

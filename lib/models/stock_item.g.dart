@@ -21,13 +21,15 @@ class StockItemAdapter extends TypeAdapter<StockItem> {
       locationId: fields[1] as int,
       quantity: fields[2] as double,
       reservedQuantity: fields[3] as double,
+      batchCode: fields[4] as String?,
+      expiryDate: fields[5] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, StockItem obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.productId)
       ..writeByte(1)
@@ -35,7 +37,11 @@ class StockItemAdapter extends TypeAdapter<StockItem> {
       ..writeByte(2)
       ..write(obj.quantity)
       ..writeByte(3)
-      ..write(obj.reservedQuantity);
+      ..write(obj.reservedQuantity)
+      ..writeByte(4)
+      ..write(obj.batchCode)
+      ..writeByte(5)
+      ..write(obj.expiryDate);
   }
 
   @override
