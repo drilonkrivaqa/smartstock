@@ -5,20 +5,26 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../models/product.dart';
 import '../models/sale.dart';
 import '../services/hive_service.dart';
+import '../services/location_service.dart';
 import '../services/product_service.dart';
 import '../services/sale_service.dart';
 import '../services/settings_service.dart';
+import '../services/stock_service.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({
     super.key,
     required this.productService,
     required this.saleService,
+    required this.stockService,
+    required this.locationService,
     required this.settingsController,
   });
 
   final ProductService productService;
   final SaleService saleService;
+  final StockService stockService;
+  final LocationService locationService;
   final SettingsController settingsController;
 
   @override
@@ -342,17 +348,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     setState(() => _processing = true);
 
-    // Validate stock
+    final location = await widget.locationService
+        .ensureLocationByName(widget.settingsController.activeLocation);
+
     for (final entry in _cartItems.entries) {
       final product = widget.productService.findById(entry.key);
       if (product == null) continue;
-      if (entry.value > product.quantity) {
+      final available = widget.stockService.getQuantity(
+        productId: product.id,
+        locationId: location.id,
+      );
+      if (entry.value > available) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
                 'Not enough stock for ${product.name}. '
-                    'Available: ${product.quantity}',
+                    'Available: $available',
               ),
             ),
           );
@@ -401,20 +413,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       locationName: locationName,
     );
 
-    await widget.saleService.recordSale(sale);
-
-    for (final entry in _cartItems.entries) {
-      final product = widget.productService.findById(entry.key);
-      if (product == null) continue;
-
-      await widget.productService.adjustStock(
-        product: product,
-        change: -entry.value,
-        type: 'sale',
-        note: 'Checkout sale',
-        saleId: saleId,
-      );
-    }
+    await widget.saleService.recordSale(sale, locationId: location.id);
 
     setState(() {
       _processing = false;

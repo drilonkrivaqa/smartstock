@@ -8,13 +8,13 @@ class StockMovement extends HiveObject {
   int id;
 
   @HiveField(1)
-  int productId;
+  String type;
 
   @HiveField(2)
-  int change;
+  int? fromLocationId;
 
   @HiveField(3)
-  String type;
+  int? toLocationId;
 
   @HiveField(4)
   DateTime date;
@@ -23,15 +23,33 @@ class StockMovement extends HiveObject {
   String? note;
 
   @HiveField(6)
-  int? saleId;
+  List<StockMovementLine> lines;
 
   StockMovement({
     required this.id,
-    required this.productId,
-    required this.change,
     required this.type,
     required this.date,
+    required this.lines,
+    this.fromLocationId,
+    this.toLocationId,
     this.note,
-    this.saleId,
+  });
+}
+
+@HiveType(typeId: 6)
+class StockMovementLine {
+  @HiveField(0)
+  int productId;
+
+  @HiveField(1)
+  double quantity;
+
+  @HiveField(2)
+  double unitCost;
+
+  StockMovementLine({
+    required this.productId,
+    required this.quantity,
+    required this.unitCost,
   });
 }

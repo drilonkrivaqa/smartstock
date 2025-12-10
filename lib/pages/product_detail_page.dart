@@ -8,6 +8,8 @@ import '../models/stock_movement.dart';
 import '../services/hive_service.dart';
 import '../services/product_service.dart';
 import '../services/settings_service.dart';
+import '../services/location_service.dart';
+import '../services/stock_service.dart';
 import '../widgets/product_card.dart';
 import '../widgets/stock_movement_tile.dart';
 import 'product_form_page.dart';
@@ -19,11 +21,15 @@ class ProductDetailPage extends StatelessWidget {
     required this.productId,
     required this.productService,
     required this.settingsController,
+    required this.stockService,
+    required this.locationService,
   });
 
   final int productId;
   final ProductService productService;
   final SettingsController settingsController;
+  final StockService stockService;
+  final LocationService locationService;
 
   @override
   Widget build(BuildContext context) {
@@ -115,9 +121,14 @@ class ProductDetailPage extends StatelessWidget {
                                       ),
                                     );
                                     if (result != null) {
-                                      await productService.adjustStock(
-                                        product: product,
-                                        change: result.change,
+                                      final location = await locationService
+                                          .ensureLocationByName(
+                                              settingsController
+                                                  .activeLocation);
+                                      await stockService.adjustStock(
+                                        productId: product.id,
+                                        locationId: location.id,
+                                        quantityChange: result.change,
                                         type: result.type,
                                         note: result.note,
                                       );
@@ -179,7 +190,7 @@ class ProductDetailPage extends StatelessWidget {
                       valueListenable: movementsBox.listenable(),
                       builder: (context, Box<StockMovement> _, __) {
                         final list =
-                            productService.movementsForProduct(productId);
+                            stockService.movementsForProduct(productId);
                         if (list.isEmpty) {
                           return const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),

@@ -2,19 +2,34 @@ import 'package:hive/hive.dart';
 
 import '../models/product.dart';
 import '../models/sale.dart';
+import '../services/stock_service.dart';
 import '../services/hive_service.dart';
 
 class SaleService {
   SaleService({
     required this.salesBox,
     required this.productsBox,
+    required this.stockService,
   });
 
   final Box<Sale> salesBox;
   final Box<Product> productsBox;
+  final StockService stockService;
 
-  Future<void> recordSale(Sale sale) async {
+  Future<void> recordSale(Sale sale, {required int locationId}) async {
     await salesBox.add(sale);
+    final products = productLookup();
+    for (final item in sale.items) {
+      final unitCost = products[item.productId]?.purchasePrice ?? 0;
+      await stockService.adjustStock(
+        productId: item.productId,
+        locationId: locationId,
+        quantityChange: -item.quantity.toDouble(),
+        type: 'sale',
+        note: 'Sale ${sale.id}',
+        unitCost: unitCost,
+      );
+    }
   }
 
   List<Sale> getSales() {
@@ -72,8 +87,12 @@ class SaleService {
   }
 }
 
-Future<SaleService> buildSaleService() async {
+Future<SaleService> buildSaleService(StockService stockService) async {
   final sales = Hive.box<Sale>(HiveService.salesBox);
   final products = Hive.box<Product>(HiveService.productsBox);
-  return SaleService(salesBox: sales, productsBox: products);
+  return SaleService(
+    salesBox: sales,
+    productsBox: products,
+    stockService: stockService,
+  );
 }

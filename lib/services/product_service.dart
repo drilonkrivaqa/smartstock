@@ -80,29 +80,17 @@ class ProductService {
     DateTime? date,
     int? saleId,
   }) async {
-    final updatedProduct = product.copyWith(
-      quantity: product.quantity + change,
-      updatedAt: date ?? DateTime.now(),
-    );
-    await addOrUpdateProduct(updatedProduct);
-    final movement = StockMovement(
-      id: DateTime.now().microsecondsSinceEpoch,
-      productId: product.id,
-      change: change,
-      type: type,
-      date: date ?? DateTime.now(),
-      note: note,
-      saleId: saleId,
-    );
-    await movementsBox.add(movement);
+    throw UnimplementedError('Use StockService.adjustStock instead.');
   }
 
   List<StockMovement> movementsForProduct(int productId) {
-    final movements = movementsBox.values
-        .where((movement) => movement.productId == productId)
+    return movementsBox.values
+        .where(
+          (movement) => movement.lines
+              .any((line) => line.productId == productId),
+        )
         .toList()
       ..sort((a, b) => b.date.compareTo(a.date));
-    return movements;
   }
 
   Product? findById(int id) {

@@ -9,7 +9,7 @@ class StockAdjustmentResult {
     this.note,
   });
 
-  final int change;
+  final double change;
   final String type;
   final String? note;
 }
@@ -60,9 +60,10 @@ class _StockAdjustmentDialogState extends State<StockAdjustmentDialog> {
                   controller: _quantityController,
                   decoration:
                       const InputDecoration(labelText: 'Quantity change'),
-                  keyboardType: TextInputType.number,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   validator: (value) {
-                    final parsed = int.tryParse(value ?? '');
+                    final parsed = double.tryParse(value ?? '');
                     if (parsed == null || parsed == 0) {
                       return 'Enter a non-zero number';
                     }
@@ -111,7 +112,7 @@ class _StockAdjustmentDialogState extends State<StockAdjustmentDialog> {
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    int change = int.parse(_quantityController.text.trim());
+    double change = double.parse(_quantityController.text.trim());
     if (_type == 'restock' && change < 0) {
       change = change.abs();
     }

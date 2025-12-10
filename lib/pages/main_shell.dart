@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../services/product_service.dart';
 import '../services/sale_service.dart';
+import '../services/location_service.dart';
 import '../services/settings_service.dart';
+import '../services/stock_service.dart';
 import 'home_page.dart';
 import 'reports_page.dart';
 import 'sales_page.dart';
@@ -11,11 +13,15 @@ import 'settings_page.dart';
 class MainShell extends StatefulWidget {
   const MainShell({
     super.key,
+    required this.locationService,
+    required this.stockService,
     required this.productService,
     required this.saleService,
     required this.settingsController,
   });
 
+  final LocationService locationService;
+  final StockService stockService;
   final ProductService productService;
   final SaleService saleService;
   final SettingsController settingsController;
@@ -32,6 +38,8 @@ class _MainShellState extends State<MainShell> {
     final pages = [
       ProductsPage(
         productService: widget.productService,
+        stockService: widget.stockService,
+        locationService: widget.locationService,
         settingsController: widget.settingsController,
         saleService: widget.saleService,
       ),
