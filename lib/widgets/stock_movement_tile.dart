@@ -9,7 +9,14 @@ class StockMovementTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPositive = movement.change >= 0;
+    final totalChange = movement.lines.fold<double>(
+      0,
+      (sum, line) => sum + line.quantity,
+    );
+    final isPositive = totalChange >= 0;
+    final quantityText = totalChange >= 0
+        ? '+${totalChange.toStringAsFixed(2)} units'
+        : '${totalChange.toStringAsFixed(2)} units';
     return ListTile(
       leading: CircleAvatar(
         backgroundColor:
@@ -19,7 +26,7 @@ class StockMovementTile extends StatelessWidget {
           color: isPositive ? Colors.green : Colors.red,
         ),
       ),
-      title: Text('${movement.change > 0 ? '+' : ''}${movement.change} units'),
+      title: Text(quantityText),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

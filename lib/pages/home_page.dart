@@ -9,8 +9,10 @@ import 'package:path_provider/path_provider.dart';
 import '../models/product.dart';
 import '../services/hive_service.dart';
 import '../services/product_service.dart';
+import '../services/location_service.dart';
 import '../services/settings_service.dart';
 import '../services/sale_service.dart';
+import '../services/stock_service.dart';
 import 'checkout_page.dart';
 import '../widgets/product_card.dart';
 import 'product_detail_page.dart';
@@ -21,11 +23,15 @@ class ProductsPage extends StatefulWidget {
   const ProductsPage({
     super.key,
     required this.productService,
+    required this.stockService,
+    required this.locationService,
     required this.settingsController,
     required this.saleService,
   });
 
   final ProductService productService;
+  final StockService stockService;
+  final LocationService locationService;
   final SettingsController settingsController;
   final SaleService saleService;
 
@@ -61,6 +67,8 @@ class _ProductsPageState extends State<ProductsPage> {
                       builder: (_) => CheckoutPage(
                         productService: widget.productService,
                         saleService: widget.saleService,
+                        stockService: widget.stockService,
+                        locationService: widget.locationService,
                         settingsController: widget.settingsController,
                       ),
                     ),
@@ -276,6 +284,10 @@ class _ProductsPageState extends State<ProductsPage> {
                                                   settingsController:
                                                   widget
                                                       .settingsController,
+                                                  stockService:
+                                                      widget.stockService,
+                                                  locationService:
+                                                      widget.locationService,
                                                 ),
                                           ),
                                         ),
@@ -457,18 +469,30 @@ class _ProductsPageState extends State<ProductsPage> {
       return;
     }
 
-    await widget.productService.adjustStock(
-      product: product,
-      change: 1,
-      type: 'count',
-      note: 'Inventory count scan',
-    );
+    final location = await widget.locationService
+        .ensureLocationByName(widget.settingsController.activeLocation);
+    try {
+      await widget.stockService.adjustStock(
+        productId: product.id,
+        locationId: location.id,
+        quantityChange: 1,
+        type: 'count',
+        note: 'Inventory count scan',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update stock: $error')),
+      );
+      return;
+    }
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '${product.name} counted. New qty: ${product.quantity + 1}',
+          '${product.name} counted. New qty: '
+          '${widget.stockService.getQuantity(productId: product.id, locationId: location.id)}',
         ),
       ),
     );
