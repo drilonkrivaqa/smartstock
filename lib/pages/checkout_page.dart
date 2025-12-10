@@ -34,6 +34,7 @@ class CheckoutPage extends StatefulWidget {
 class _CheckoutPageState extends State<CheckoutPage> {
   final Map<int, int> _cartItems = {};
   bool _processing = false;
+  static const double _lowMarginThreshold = 10;
 
   final TextEditingController _customerController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
@@ -123,15 +124,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     return ListView.separated(
                       itemCount: items.length,
                       separatorBuilder: (_, __) =>
-                      const SizedBox(height: 8),
+                          const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final item = items[index];
                         final maxAvailable = item.product.quantity;
-                        final canIncrease = item.quantity < maxAvailable;
-                        final price = item.product.salePrice;
-                        final lineTotal = price != null
-                            ? price * item.quantity
-                            : null;
+                        final price = item.product.salePrice ?? 0;
+                        final cost = item.product.purchasePrice ?? 0;
+                        final lineTotal = price * item.quantity;
+                        final lineCostTotal = cost * item.quantity;
+                        final lineProfit = lineTotal - lineCostTotal;
+                        final lineMarginPercent = lineTotal > 0
+                            ? (lineProfit / lineTotal) * 100
+                            : 0;
+                        final isLowMargin =
+                            lineMarginPercent < _lowMarginThreshold;
 
                         return Card(
                           child: ListTile(
@@ -140,39 +146,103 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text('In stock: $maxAvailable'),
-                                if (price != null)
-                                  Text(
-                                    'Price: ${price.toStringAsFixed(2)}'
-                                        '${lineTotal != null ? ' | Line: ${lineTotal.toStringAsFixed(2)}' : ''}',
-                                  ),
+                                Text(
+                                  'Price: ${price.toStringAsFixed(2)} | Line: ${lineTotal.toStringAsFixed(2)}',
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.stacked_line_chart,
+                                      size: 16,
+                                      color: isLowMargin
+                                          ? Colors.orange
+                                          : Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Margin: ${lineMarginPercent.toStringAsFixed(1)}%',
+                                      style: TextStyle(
+                                        color: isLowMargin
+                                            ? Colors.orange
+                                            : null,
+                                      ),
+                                    ),
+                                    if (isLowMargin) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Low margin',
+                                          style: TextStyle(color: Colors.orange),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ],
                             ),
-                            trailing: Row(
+                            trailing: Column(
                               mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                IconButton(
-                                  onPressed: _processing
-                                      ? null
-                                      : () => _decreaseQuantity(
-                                    item.product.id,
-                                  ),
-                                  icon: const Icon(
-                                      Icons.remove_circle_outline),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      onPressed: _processing
+                                          ? null
+                                          : () => _changeQuantityBy(
+                                                item.product.id,
+                                                -1,
+                                              ),
+                                      icon: const Icon(
+                                          Icons.remove_circle_outline),
+                                    ),
+                                    Text(
+                                      item.quantity.toString(),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium,
+                                    ),
+                                    IconButton(
+                                      onPressed: _processing
+                                              ? null
+                                              : () => _changeQuantityBy(
+                                                    item.product.id,
+                                                    1,
+                                                  ),
+                                      icon: const Icon(
+                                          Icons.add_circle_outline),
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  item.quantity.toString(),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium,
-                                ),
-                                IconButton(
-                                  onPressed: _processing || !canIncrease
-                                      ? null
-                                      : () => _increaseQuantity(
-                                    item.product.id,
-                                  ),
-                                  icon: const Icon(
-                                      Icons.add_circle_outline),
+                                Wrap(
+                                  spacing: 4,
+                                  children: [
+                                    for (final inc in [1, 5, 10])
+                                      OutlinedButton(
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 4),
+                                          minimumSize: const Size(0, 32),
+                                        ),
+                                        onPressed: _processing
+                                                ? null
+                                                : () => _changeQuantityBy(
+                                                      item.product.id,
+                                                      inc,
+                                                    ),
+                                        child: Text('+${inc.toString()}'),
+                                      ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -203,8 +273,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
               _CheckoutSummary(
                 items: _cartItems,
                 productService: widget.productService,
+                saleService: widget.saleService,
                 processing: _processing,
                 onComplete: _completeSale,
+                onAddProduct: _addProductToCart,
               ),
             ],
           ),
@@ -309,17 +381,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
-    setState(() {
-      _cartItems.update(product.id, (value) => value + 1,
-          ifAbsent: () => 1);
-    });
-  }
-
-  void _increaseQuantity(int productId) {
-    final product = widget.productService.findById(productId);
-    if (product == null) return;
-
-    final current = _cartItems[productId] ?? 0;
+    final current = _cartItems[product.id] ?? 0;
     if (current >= product.quantity) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -329,17 +391,31 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
-    setState(() => _cartItems[productId] = current + 1);
+    setState(() {
+      _cartItems[product.id] = current + 1;
+    });
   }
 
-  void _decreaseQuantity(int productId) {
-    final current = _cartItems[productId];
-    if (current == null) return;
+  void _changeQuantityBy(int productId, int delta) {
+    final product = widget.productService.findById(productId);
+    if (product == null) return;
 
-    if (current <= 1) {
+    final current = _cartItems[productId] ?? 0;
+    final newQuantity = current + delta;
+
+    if (delta > 0 && newQuantity > product.quantity) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Only ${product.quantity} in stock.'),
+        ),
+      );
+      return;
+    }
+
+    if (newQuantity <= 0) {
       setState(() => _cartItems.remove(productId));
     } else {
-      setState(() => _cartItems[productId] = current - 1);
+      setState(() => _cartItems[productId] = newQuantity);
     }
   }
 
@@ -455,57 +531,133 @@ class _CheckoutSummary extends StatelessWidget {
   const _CheckoutSummary({
     required this.items,
     required this.productService,
+    required this.saleService,
     required this.processing,
     required this.onComplete,
+    required this.onAddProduct,
   });
 
   final Map<int, int> items;
   final ProductService productService;
+  final SaleService saleService;
   final bool processing;
   final VoidCallback onComplete;
+  final ValueChanged<Product> onAddProduct;
 
   @override
   Widget build(BuildContext context) {
     int totalItems = 0;
-    double totalValue = 0;
+    double basketSaleTotal = 0;
+    double basketCostTotal = 0;
 
     items.forEach((id, quantity) {
       final product = productService.findById(id);
       if (product == null) return;
 
+      final salePrice = product.salePrice ?? 0;
+      final costPrice = product.purchasePrice ?? 0;
+
       totalItems += quantity;
-      if (product.salePrice != null) {
-        totalValue += product.salePrice! * quantity;
-      }
+      basketSaleTotal += salePrice * quantity;
+      basketCostTotal += costPrice * quantity;
     });
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Items: $totalItems'),
-            const SizedBox(height: 4),
-            Text(
-              'Total: ${totalValue.toStringAsFixed(2)}',
-              style: Theme.of(context).textTheme.titleMedium,
+    final basketProfit = basketSaleTotal - basketCostTotal;
+    final basketMarginPercent = basketSaleTotal > 0
+        ? (basketProfit / basketSaleTotal) * 100
+        : 0;
+
+    final suggestedProducts = _suggestedProducts();
+
+    return Column(
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Items: $totalItems'),
+                const SizedBox(height: 4),
+                Text(
+                  'Total: ${basketSaleTotal.toStringAsFixed(2)}',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text('Cost: ${basketCostTotal.toStringAsFixed(2)}'),
+                const SizedBox(height: 4),
+                Text('Profit: ${basketProfit.toStringAsFixed(2)}'),
+                const SizedBox(height: 4),
+                Text(
+                  'Margin: ${basketMarginPercent.toStringAsFixed(1)}%',
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed:
+                        items.isEmpty || processing ? null : onComplete,
+                    icon: const Icon(Icons.point_of_sale),
+                    label: processing
+                        ? const Text('Processing...')
+                        : const Text('Complete sale'),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: items.isEmpty || processing ? null : onComplete,
-                icon: const Icon(Icons.point_of_sale),
-                label: processing
-                    ? const Text('Processing...')
-                    : const Text('Complete sale'),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Suggested items',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                if (suggestedProducts.isEmpty)
+                  const Text('No suggestions right now.')
+                else
+                  ...suggestedProducts.map(
+                    (product) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(product.name),
+                      subtitle: Text(
+                        'In stock: ${product.quantity}'
+                        '${product.salePrice != null ? ' • ${product.salePrice!.toStringAsFixed(2)}' : ''}',
+                      ),
+                      trailing: OutlinedButton.icon(
+                        onPressed: () => onAddProduct(product),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add'),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
+  }
+
+  List<Product> _suggestedProducts() {
+    final salesCounts =
+        saleService.quantitySoldSince(DateTime.fromMillisecondsSinceEpoch(0));
+    final products = productService
+        .getProducts()
+        .where((product) =>
+            product.quantity > 0 && !items.keys.contains(product.id))
+        .toList();
+
+    products.sort((a, b) =>
+        (salesCounts[b.id] ?? 0).compareTo(salesCounts[a.id] ?? 0));
+
+    return products.take(3).toList();
   }
 }
 
