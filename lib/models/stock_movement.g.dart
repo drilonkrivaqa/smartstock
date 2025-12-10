@@ -19,11 +19,11 @@ class StockMovementAdapter extends TypeAdapter<StockMovement> {
     return StockMovement(
       id: fields[0] as int,
       type: fields[1] as String,
+      date: fields[4] as DateTime,
+      lines: (fields[6] as List).cast<StockMovementLine>(),
       fromLocationId: fields[2] as int?,
       toLocationId: fields[3] as int?,
-      date: fields[4] as DateTime,
       note: fields[5] as String?,
-      lines: (fields[6] as List).cast<StockMovementLine>(),
     );
   }
 

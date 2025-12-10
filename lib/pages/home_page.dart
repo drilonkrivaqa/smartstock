@@ -352,9 +352,11 @@ class _ProductsPageState extends State<ProductsPage> {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => ProductDetailPage(
-            productId: product.id,
+            productId: product.id, // keep your existing value
             productService: widget.productService,
             settingsController: widget.settingsController,
+            stockService: widget.stockService,
+            locationService: widget.locationService,
           ),
         ),
       );
