@@ -20,16 +20,38 @@ class StockService {
   final Box<StockMovement> stockMovementsBox;
   final Box<Product> productsBox;
 
-  double getQuantity({required int productId, required int locationId}) {
-    final item = _findStockItem(productId: productId, locationId: locationId);
-    return item?.quantity ?? 0;
+  double getQuantity({
+    required int productId,
+    required int locationId,
+    String? batchCode,
+    DateTime? expiryDate,
+  }) {
+    if (batchCode != null || expiryDate != null) {
+      final item = _findStockItem(
+        productId: productId,
+        locationId: locationId,
+        batchCode: batchCode,
+        expiryDate: expiryDate,
+      );
+      return item?.quantity ?? 0;
+    }
+
+    return stockItemsBox.values
+        .where(
+          (item) => item.productId == productId && item.locationId == locationId,
+        )
+        .fold<double>(0, (sum, item) => sum + item.quantity);
   }
 
   Map<int, double> getQuantitiesForLocation(int locationId) {
     final quantities = <int, double>{};
     for (final item in stockItemsBox.values
         .where((element) => element.locationId == locationId)) {
-      quantities[item.productId] = item.quantity;
+      quantities.update(
+        item.productId,
+        (value) => value + item.quantity,
+        ifAbsent: () => item.quantity,
+      );
     }
     return quantities;
   }
@@ -66,6 +88,8 @@ class StockService {
     required double quantity,
     required double unitCost,
     String? note,
+    String? batchCode,
+    DateTime? expiryDate,
   }) async {
     final warehouse =
         locationService.getWarehouse() ?? await locationService.ensureDefaultWarehouse();
@@ -74,6 +98,8 @@ class StockService {
       productId: productId,
       locationId: warehouse.id,
       change: quantity,
+      batchCode: batchCode,
+      expiryDate: expiryDate,
     );
 
     final movement = StockMovement(
@@ -87,6 +113,8 @@ class StockService {
           productId: productId,
           quantity: quantity,
           unitCost: unitCost,
+          batchCode: batchCode,
+          expiryDate: expiryDate,
         ),
       ],
     );
@@ -100,8 +128,15 @@ class StockService {
     required int toLocationId,
     required double quantity,
     String? note,
+    String? batchCode,
+    DateTime? expiryDate,
   }) async {
-    final available = getQuantity(productId: productId, locationId: fromLocationId);
+    final available = getQuantity(
+      productId: productId,
+      locationId: fromLocationId,
+      batchCode: batchCode,
+      expiryDate: expiryDate,
+    );
     if (available < quantity) {
       throw Exception('Insufficient stock to transfer.');
     }
@@ -110,11 +145,15 @@ class StockService {
       productId: productId,
       locationId: fromLocationId,
       change: -quantity,
+      batchCode: batchCode,
+      expiryDate: expiryDate,
     );
     await _changeStock(
       productId: productId,
       locationId: toLocationId,
       change: quantity,
+      batchCode: batchCode,
+      expiryDate: expiryDate,
     );
 
     final movement = StockMovement(
@@ -129,6 +168,8 @@ class StockService {
           productId: productId,
           quantity: quantity,
           unitCost: 0,
+          batchCode: batchCode,
+          expiryDate: expiryDate,
         ),
       ],
     );
@@ -142,9 +183,17 @@ class StockService {
     required double quantityChange,
     required String type,
     String? note,
+    String? batchCode,
+    DateTime? expiryDate,
+    String? reasonCode,
     double unitCost = 0,
   }) async {
-    final available = getQuantity(productId: productId, locationId: locationId);
+    final available = getQuantity(
+      productId: productId,
+      locationId: locationId,
+      batchCode: batchCode,
+      expiryDate: expiryDate,
+    );
     if (quantityChange < 0 && available + quantityChange < 0) {
       throw Exception('Insufficient stock.');
     }
@@ -153,6 +202,8 @@ class StockService {
       productId: productId,
       locationId: locationId,
       change: quantityChange,
+      batchCode: batchCode,
+      expiryDate: expiryDate,
     );
 
     final movement = StockMovement(
@@ -162,11 +213,14 @@ class StockService {
       fromLocationId: quantityChange < 0 ? locationId : null,
       toLocationId: quantityChange > 0 ? locationId : null,
       note: note,
+      reasonCode: reasonCode,
       lines: [
         StockMovementLine(
           productId: productId,
           quantity: quantityChange,
           unitCost: unitCost,
+          batchCode: batchCode,
+          expiryDate: expiryDate,
         ),
       ],
     );
@@ -177,10 +231,16 @@ class StockService {
   StockItem? _findStockItem({
     required int productId,
     required int locationId,
+    String? batchCode,
+    DateTime? expiryDate,
   }) {
     try {
       return stockItemsBox.values.firstWhere(
-        (item) => item.productId == productId && item.locationId == locationId,
+        (item) =>
+            item.productId == productId &&
+            item.locationId == locationId &&
+            item.batchCode == batchCode &&
+            item.expiryDate == expiryDate,
       );
     } catch (_) {
       return null;
@@ -191,27 +251,72 @@ class StockService {
     required int productId,
     required int locationId,
     required double change,
+    String? batchCode,
+    DateTime? expiryDate,
   }) async {
-    final existing = _findStockItem(productId: productId, locationId: locationId);
-    if (existing != null) {
-      final newQuantity = existing.quantity + change;
-      if (newQuantity < 0) {
-        throw Exception('Resulting stock cannot be negative.');
+    final targetedItem = _findStockItem(
+      productId: productId,
+      locationId: locationId,
+      batchCode: batchCode,
+      expiryDate: expiryDate,
+    );
+    if (batchCode != null || expiryDate != null) {
+      final existing = targetedItem;
+      if (existing != null) {
+        final newQuantity = existing.quantity + change;
+        if (newQuantity < 0) {
+          throw Exception('Resulting stock cannot be negative.');
+        }
+        existing
+          ..quantity = newQuantity
+          ..batchCode = batchCode ?? existing.batchCode
+          ..expiryDate = expiryDate ?? existing.expiryDate;
+        await existing.save();
+      } else {
+        if (change < 0) {
+          throw Exception('Resulting stock cannot be negative.');
+        }
+        await stockItemsBox.add(
+          StockItem(
+            productId: productId,
+            locationId: locationId,
+            quantity: change,
+            batchCode: batchCode,
+            expiryDate: expiryDate,
+          ),
+        );
       }
-      final key = stockItemsBox.keyAt(stockItemsBox.values.toList().indexOf(existing));
-      await stockItemsBox.put(
-        key,
-        StockItem(
-          productId: existing.productId,
-          locationId: existing.locationId,
-          quantity: newQuantity,
-          reservedQuantity: existing.reservedQuantity,
-        ),
+      await _syncProductQuantity(productId);
+      return;
+    }
+
+    if (change < 0) {
+      await _deductFromAvailableLots(
+        productId: productId,
+        locationId: locationId,
+        deduction: -change,
       );
+      await _syncProductQuantity(productId);
+      return;
+    }
+
+    final existingUntagged = stockItemsBox.values.firstWhere(
+      (item) =>
+          item.productId == productId &&
+          item.locationId == locationId &&
+          item.batchCode == null &&
+          item.expiryDate == null,
+      orElse: () => StockItem(
+        productId: productId,
+        locationId: locationId,
+        quantity: 0,
+      ),
+    );
+
+    if (existingUntagged.isInBox) {
+      existingUntagged.quantity += change;
+      await existingUntagged.save();
     } else {
-      if (change < 0) {
-        throw Exception('Resulting stock cannot be negative.');
-      }
       await stockItemsBox.add(
         StockItem(
           productId: productId,
@@ -222,6 +327,36 @@ class StockService {
     }
 
     await _syncProductQuantity(productId);
+  }
+
+  Future<void> _deductFromAvailableLots({
+    required int productId,
+    required int locationId,
+    required double deduction,
+  }) async {
+    final items = stockItemsBox.values
+        .where((item) => item.productId == productId && item.locationId == locationId)
+        .toList()
+      ..sort((a, b) {
+        if (a.expiryDate == null && b.expiryDate != null) return 1;
+        if (a.expiryDate != null && b.expiryDate == null) return -1;
+        if (a.expiryDate == null && b.expiryDate == null) return 0;
+        return a.expiryDate!.compareTo(b.expiryDate!);
+      });
+
+    final available = items.fold<double>(0, (sum, item) => sum + item.quantity);
+    if (available < deduction) {
+      throw Exception('Resulting stock cannot be negative.');
+    }
+
+    var remaining = deduction;
+    for (final item in items) {
+      if (remaining <= 0) break;
+      final used = remaining > item.quantity ? item.quantity : remaining;
+      item.quantity -= used;
+      remaining -= used;
+      await item.save();
+    }
   }
 
   Future<void> _syncProductQuantity(int productId) async {

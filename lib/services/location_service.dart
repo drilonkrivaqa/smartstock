@@ -14,6 +14,14 @@ class LocationService {
     return locations;
   }
 
+  Location? findById(int id) {
+    try {
+      return locationsBox.values.firstWhere((location) => location.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Location? getWarehouse() {
     try {
       return locationsBox.values
