@@ -136,8 +136,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         final lineMarginPercent = lineTotal > 0
                             ? (lineProfit / lineTotal) * 100
                             : 0;
+                        final isNegativeMargin = lineMarginPercent < 0;
                         final isLowMargin =
+                            !isNegativeMargin &&
                             lineMarginPercent < _lowMarginThreshold;
+                        final marginColor = isNegativeMargin
+                            ? Colors.red
+                            : isLowMargin
+                                ? Colors.orange
+                                : Theme.of(context).colorScheme.primary;
 
                         return Card(
                           child: ListTile(
@@ -146,28 +153,56 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text('In stock: $maxAvailable'),
-                                Text(
-                                  'Price: ${price.toStringAsFixed(2)} | Line: ${lineTotal.toStringAsFixed(2)}',
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    _MetricChip(
+                                      icon: Icons.sell_outlined,
+                                      label:
+                                          'Unit price: ${price.toStringAsFixed(2)}',
+                                    ),
+                                    _MetricChip(
+                                      icon: Icons.shopping_cart_checkout,
+                                      label:
+                                          'Line total: ${lineTotal.toStringAsFixed(2)}',
+                                    ),
+                                    _MetricChip(
+                                      icon: Icons.paid_outlined,
+                                      label:
+                                          'Profit: ${lineProfit.toStringAsFixed(2)}',
+                                    ),
+                                  ],
                                 ),
+                                const SizedBox(height: 4),
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
                                       Icons.stacked_line_chart,
                                       size: 16,
-                                      color: isLowMargin
-                                          ? Colors.orange
-                                          : Theme.of(context)
-                                              .colorScheme
-                                              .primary,
+                                      color: marginColor,
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
                                       'Margin: ${lineMarginPercent.toStringAsFixed(1)}%',
                                       style: TextStyle(
-                                        color: isLowMargin
-                                            ? Colors.orange
-                                            : null,
+                                        color: marginColor,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: LinearProgressIndicator(
+                                          value: (lineMarginPercent / 50)
+                                              .clamp(0.0, 1.0),
+                                          minHeight: 6,
+                                          backgroundColor:
+                                              Theme.of(context).dividerColor,
+                                          color: marginColor,
+                                        ),
                                       ),
                                     ),
                                     if (isLowMargin) ...[
@@ -182,6 +217,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                         child: const Text(
                                           'Low margin',
                                           style: TextStyle(color: Colors.orange),
+                                        ),
+                                      ),
+                                    ],
+                                    if (isNegativeMargin) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Selling at a loss',
+                                          style: TextStyle(color: Colors.red),
                                         ),
                                       ),
                                     ],
@@ -277,6 +327,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 processing: _processing,
                 onComplete: _completeSale,
                 onAddProduct: _addProductToCart,
+                lowMarginThreshold: _lowMarginThreshold,
               ),
             ],
           ),
@@ -535,6 +586,7 @@ class _CheckoutSummary extends StatelessWidget {
     required this.processing,
     required this.onComplete,
     required this.onAddProduct,
+    required this.lowMarginThreshold,
   });
 
   final Map<int, int> items;
@@ -543,12 +595,17 @@ class _CheckoutSummary extends StatelessWidget {
   final bool processing;
   final VoidCallback onComplete;
   final ValueChanged<Product> onAddProduct;
+  final double lowMarginThreshold;
 
   @override
   Widget build(BuildContext context) {
     int totalItems = 0;
     double basketSaleTotal = 0;
     double basketCostTotal = 0;
+    int lowMarginCount = 0;
+    int negativeMarginCount = 0;
+    double marginAccumulator = 0;
+    int marginSamples = 0;
 
     items.forEach((id, quantity) {
       final product = productService.findById(id);
@@ -556,6 +613,16 @@ class _CheckoutSummary extends StatelessWidget {
 
       final salePrice = product.salePrice ?? 0;
       final costPrice = product.purchasePrice ?? 0;
+      final lineMargin = salePrice > 0
+          ? ((salePrice - costPrice) / salePrice) * 100
+          : 0;
+      if (lineMargin < 0) {
+        negativeMarginCount++;
+      } else if (lineMargin < lowMarginThreshold) {
+        lowMarginCount++;
+      }
+      marginAccumulator += lineMargin;
+      marginSamples++;
 
       totalItems += quantity;
       basketSaleTotal += salePrice * quantity;
@@ -565,6 +632,9 @@ class _CheckoutSummary extends StatelessWidget {
     final basketProfit = basketSaleTotal - basketCostTotal;
     final basketMarginPercent = basketSaleTotal > 0
         ? (basketProfit / basketSaleTotal) * 100
+        : 0;
+    final averageLineMargin = marginSamples > 0
+        ? marginAccumulator / marginSamples
         : 0;
 
     final suggestedProducts = _suggestedProducts();
@@ -577,20 +647,110 @@ class _CheckoutSummary extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Items: $totalItems'),
-                const SizedBox(height: 4),
-                Text(
-                  'Total: ${basketSaleTotal.toStringAsFixed(2)}',
-                  style: Theme.of(context).textTheme.titleMedium,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _MetricChip(
+                      icon: Icons.shopping_bag,
+                      label: 'Items: $totalItems',
+                    ),
+                    _MetricChip(
+                      icon: Icons.payments,
+                      label:
+                          'Total: ${basketSaleTotal.toStringAsFixed(2)}',
+                    ),
+                    _MetricChip(
+                      icon: Icons.account_balance_wallet_outlined,
+                      label: 'Cost: ${basketCostTotal.toStringAsFixed(2)}',
+                    ),
+                    _MetricChip(
+                      icon: Icons.trending_up,
+                      label: 'Profit: ${basketProfit.toStringAsFixed(2)}',
+                    ),
+                    _MetricChip(
+                      icon: Icons.percent,
+                      label:
+                          'Margin: ${basketMarginPercent.toStringAsFixed(1)}%',
+                    ),
+                    _MetricChip(
+                      icon: Icons.insights,
+                      label:
+                          'Avg line margin: ${averageLineMargin.toStringAsFixed(1)}%',
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text('Cost: ${basketCostTotal.toStringAsFixed(2)}'),
-                const SizedBox(height: 4),
-                Text('Profit: ${basketProfit.toStringAsFixed(2)}'),
-                const SizedBox(height: 4),
-                Text(
-                  'Margin: ${basketMarginPercent.toStringAsFixed(1)}%',
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: (basketMarginPercent / 50)
+                              .clamp(0.0, 1.0),
+                          minHeight: 8,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      basketMarginPercent >= 0
+                          ? 'Healthy basket'
+                          : 'Check pricing',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                  ],
                 ),
+                if (lowMarginCount > 0 || negativeMarginCount > 0) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .error
+                          .withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Margin check',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .error,
+                                  ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${negativeMarginCount > 0 ? '$negativeMarginCount item(s) selling below cost. ' : ''}'
+                          '${lowMarginCount > 0 ? '$lowMarginCount item(s) below the $lowMarginThreshold% target margin.' : ''}',
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Review prices or quantities before completing the sale to keep profitability on track.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
@@ -666,4 +826,27 @@ class _CartEntry {
 
   final Product product;
   final int quantity;
+}
+
+class _MetricChip extends StatelessWidget {
+  const _MetricChip({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      avatar: Icon(
+        icon,
+        size: 18,
+      ),
+      label: Text(label),
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+    );
+  }
 }
